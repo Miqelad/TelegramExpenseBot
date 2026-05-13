@@ -1,0 +1,26 @@
+spring:
+  application:
+    name: telegram-expense-bot
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/expenses?tcpKeepAlive=true}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/changelog-master.yaml
+
+telegram:
+  bot:
+    username: ${TELEGRAM_BOT_USERNAME:paata_ai_business_bot}
+    token: ${TELEGRAM_BOT_TOKEN}
+groq:
+  api-key: ${GROQ_API_KEY}
+jina:
+  api-key: ${JINA_API_KEY}

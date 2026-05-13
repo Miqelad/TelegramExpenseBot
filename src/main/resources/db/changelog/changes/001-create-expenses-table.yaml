@@ -1,0 +1,82 @@
+databaseChangeLog:
+  - changeSet:
+      id: create-expenses-table
+      author: paata
+
+      changes:
+        # pgvector extension
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS vector;
+
+        # uuid extension
+        - sql:
+            sql: CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+        # create table
+        - createTable:
+            tableName: expenses
+
+            columns:
+              - column:
+                  name: uuid
+                  type: UUID
+                  defaultValueComputed: uuid_generate_v4()
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+
+              - column:
+                  name: user_id
+                  type: BIGINT
+
+              - column:
+                  name: amount
+                  type: NUMERIC(19,2)
+                  constraints:
+                    nullable: false
+
+              - column:
+                  name: category
+                  type: VARCHAR(255)
+
+              - column:
+                  name: description
+                  type: TEXT
+
+              - column:
+                  name: created_at
+                  type: TIMESTAMP
+
+              - column:
+                  name: embedding
+                  type: vector(1024)
+
+        # indexes
+        - createIndex:
+            indexName: idx_expenses_user_id
+            tableName: expenses
+            columns:
+              - column:
+                  name: user_id
+
+        - createIndex:
+            indexName: idx_expenses_category
+            tableName: expenses
+            columns:
+              - column:
+                  name: category
+
+        - createIndex:
+            indexName: idx_expenses_created_at
+            tableName: expenses
+            columns:
+              - column:
+                  name: created_at
+
+        # vector index
+        - sql:
+            sql: |
+              CREATE INDEX idx_expenses_embedding
+              ON expenses
+              USING ivfflat (embedding vector_cosine_ops)
+              WITH (lists = 100);
