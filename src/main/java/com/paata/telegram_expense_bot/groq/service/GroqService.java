@@ -1,8 +1,10 @@
 package com.paata.telegram_expense_bot.groq.service;
 
 import com.paata.telegram_expense_bot.model.dto.IntentResponse;
+import com.paata.telegram_expense_bot.model.enums.IntentType;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,7 @@ import java.util.Map;
  * Сервис для работы с Groq API.
  */
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class GroqService {
 
@@ -81,16 +84,31 @@ public class GroqService {
             String content =
                     (String) message.get("content");
 
-            return objectMapper.readValue(
+            IntentResponse intentResponse = objectMapper.readValue(
                     content,
                     IntentResponse.class
             );
 
+            if (intentResponse.getIntent() == null) {
+                log.warn("Groq returned empty intent. Raw content: {}", content);
+                return unknownIntent();
+            }
+
+            return intentResponse;
+
         } catch (Exception e) {
 
-            return new IntentResponse();
+            log.error("Failed to detect intent with Groq", e);
+            return unknownIntent();
         }
     }
+
+    private IntentResponse unknownIntent() {
+        IntentResponse intentResponse = new IntentResponse();
+        intentResponse.setIntent(IntentType.UNKNOWN);
+        return intentResponse;
+    }
+
     /**
      * Отправляет запрос в LLM.
      *

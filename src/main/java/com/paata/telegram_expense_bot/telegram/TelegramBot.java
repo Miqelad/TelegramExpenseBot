@@ -3,10 +3,8 @@ package com.paata.telegram_expense_bot.telegram;
 import com.paata.telegram_expense_bot.groq.service.GroqService;
 import com.paata.telegram_expense_bot.model.dto.IntentResponse;
 import com.paata.telegram_expense_bot.model.enums.IntentType;
-import com.paata.telegram_expense_bot.service.EmbeddingService;
 import com.paata.telegram_expense_bot.service.ExpenseAnalysisService;
 import com.paata.telegram_expense_bot.service.ExpenseService;
-import com.paata.telegram_expense_bot.service.VectorSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,7 +15,6 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.util.List;
 
 /**
  * Главный Telegram bot class.
@@ -37,8 +34,6 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     private final TelegramClient telegramClient;
     private final ExpenseService expenseService;
     private final GroqService groqService;
-    private final EmbeddingService embeddingService;
-    private final VectorSearchService vectorSearchService;
     private final ExpenseAnalysisService expenseAnalysisService;
 
     /**
@@ -87,7 +82,9 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
             IntentResponse intentResponse =
                     groqService.detectIntent(text);
             IntentType intent =
-                    intentResponse.getIntent();
+                    intentResponse == null || intentResponse.getIntent() == null
+                            ? IntentType.UNKNOWN
+                            : intentResponse.getIntent();
             String response;
             switch (intent) {
                 case MONTHLY_REPORT -> response = expenseService
