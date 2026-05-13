@@ -1,151 +1,119 @@
 # Telegram Expense Bot
 
-Telegram Expense Bot - это Spring Boot приложение для учета расходов через Telegram. Пользователь пишет обычным текстом вроде `кофе 300` или `яндекс такси 340`, бот через LLM понимает намерение, извлекает сумму и категорию, сохраняет расход в PostgreSQL и дополнительно строит embedding для semantic search, RAG и AI-аналитики.
+Telegram Expense Bot - это Spring Boot приложение для учета расходов через Telegram. Пользователь пишет обычным текстом, бот через LLM понимает намерение, извлекает расходы, сохраняет их в PostgreSQL, строит embeddings и использует semantic search/RAG для анализа трат.
 
-## Что умеет бот
+## Возможности
 
-- Принимать сообщения из Telegram через long polling.
-- Определять intent пользователя через LLM:
-  - `SAVE_EXPENSE` - сохранить расход.
-  - `MONTHLY_REPORT` - показать отчет за текущий месяц.
-  - `ANALYZE` - проанализировать расходы и дать рекомендации.
-  - `UNKNOWN` - обработать непонятный запрос.
-- Извлекать из текста сумму, категорию и описание расхода.
-- Сохранять расходы в PostgreSQL.
-- Генерировать embeddings через Jina AI.
-- Хранить векторы в PostgreSQL с расширением `pgvector`.
-- Искать похожие расходы через vector similarity / semantic search.
-- Использовать RAG pipeline для анализа расходов через LLM.
-- Создавать отчет по категориям за текущий месяц.
+- Прием сообщений из Telegram через long polling.
+- Классификация намерений пользователя через Groq LLM.
+- Сохранение одного или нескольких расходов из одного сообщения.
+- Нормализация категорий расходов через LLM.
+- Отчеты за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
+- Генерация embeddings через Jina AI.
+- Хранение embeddings в PostgreSQL через pgvector.
+- Semantic search по похожим расходам.
+- RAG-анализ расходов с учетом найденного контекста.
+- Docker Compose запуск приложения и базы.
+- Отдельный пользователь БД для приложения, создаваемый через `init.sh`.
 
-## Технологии
+## Стек
 
-- Java 21.
-- Spring Boot 4.
-- Spring WebFlux и `WebClient` для HTTP-запросов к AI API.
-- Spring Data JPA для работы с базой данных.
-- PostgreSQL 16.
-- `pgvector` для хранения и поиска vector embeddings.
-- Liquibase для миграций базы данных.
-- TelegramBots 9.0.0 для Telegram long polling бота.
-- Groq API для LLM.
-- Модель Groq: `llama-3.3-70b-versatile`.
-- Jina AI Embeddings API.
-- Модель embeddings: `jina-embeddings-v3`.
-- Docker и Docker Compose для локального запуска.
-- Lombok для уменьшения boilerplate-кода.
+- Java 21
+- Spring Boot 4
+- Spring WebFlux / WebClient
+- Spring Data JPA
+- Liquibase
+- PostgreSQL 16
+- pgvector
+- TelegramBots 9.0.0
+- Groq API
+- Jina AI Embeddings API
+- Docker / Docker Compose
+- Lombok
+- spring-dotenv для локального чтения `.env`
 
-## LLM, Embedding, Vector, RAG и Semantic Search
+## Как это работает
 
-### LLM
+1. Пользователь пишет сообщение боту.
+2. `TelegramBot` получает update из Telegram.
+3. `GroqService.detectIntent` определяет intent:
+   - `SAVE_EXPENSE`
+   - `MONTHLY_REPORT`
+   - `ANALYZE`
+   - `UNKNOWN`
+4. Для сохранения расходов `ExpenseExtractorService` извлекает список расходов из текста.
+5. `ExpenseService` сохраняет расходы в PostgreSQL.
+6. `EmbeddingService` генерирует embedding для каждого расхода.
+7. `ExpenseRepository.updateEmbedding` записывает vector в поле `embedding`.
+8. Для анализа `VectorSearchService` ищет похожие расходы через pgvector.
+9. `ExpenseAnalysisService` передает релевантный контекст в LLM.
 
-LLM используется в двух местах:
+## LLM
 
-1. Определение intent пользователя.
+LLM используется для трех задач:
 
-   Пример:
+- `intent-classifier.txt` - понять, что хочет пользователь.
+- `expense-extractor.txt` - извлечь расходы из свободного текста.
+- `report-parser.txt` - понять период отчета.
+- `analyze-expenses.txt` - сформировать финансовый анализ.
 
-   ```text
-   отчет за месяц
-   ```
+Пример сообщения:
 
-   LLM возвращает JSON:
+```text
+кофе 300 и такси 500
+```
 
-   ```json
-   {
-     "intent": "MONTHLY_REPORT"
-   }
-   ```
+LLM может вернуть список расходов:
 
-2. Извлечение данных расхода из свободного текста.
+```json
+[
+  {
+    "amount": 300,
+    "category": "FOOD",
+    "description": "кофе"
+  },
+  {
+    "amount": 500,
+    "category": "TRANSPORT",
+    "description": "такси"
+  }
+]
+```
 
-   Пример:
-
-   ```text
-   макдак 900
-   ```
-
-   LLM возвращает JSON:
-
-   ```json
-   {
-     "amount": 900,
-     "category": "FOOD",
-     "description": "макдак"
-   }
-   ```
-
-В проекте prompts лежат в:
-
-- `src/main/resources/prompts/intent-classifier.txt`
-- `src/main/resources/prompts/expense-extractor.txt`
+## Embedding, Vector, Semantic Search и RAG
 
 ### Embedding
 
-Embedding - это числовое представление текста. Текст превращается в vector, где близкие по смыслу тексты имеют похожие векторы.
+Embedding - это числовое представление текста. В проекте используется модель:
 
-В проекте embedding создается через Jina AI:
-
-```java
-new EmbeddingRequest("jina-embeddings-v3", List.of(text))
+```text
+jina-embeddings-v3
 ```
 
-Для расхода embedding строится из описания и категории:
+Embedding строится для текста расхода:
 
 ```text
 {description} {category}
 ```
 
-Например:
-
-```text
-макдак FOOD
-```
-
-После этого vector сохраняется в поле `embedding`.
-
 ### Vector и pgvector
 
-PostgreSQL сам по себе не умеет эффективно работать с embedding-векторами. Для этого используется расширение `pgvector`.
-
-В таблице `expenses` есть поле:
+В PostgreSQL используется расширение `pgvector`. В таблице `expenses` есть поле:
 
 ```sql
 embedding vector(1024)
 ```
 
-Расширение включается так:
+Расширения включаются так:
 
 ```sql
 CREATE EXTENSION IF NOT EXISTS vector;
-```
-
-Для ускорения поиска создается vector index:
-
-```sql
-CREATE INDEX idx_expenses_embedding
-ON expenses
-USING ivfflat (embedding vector_cosine_ops)
-WITH (lists = 100);
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 ```
 
 ### Semantic Search
 
-Semantic Search - это поиск не по точному совпадению слов, а по смысловой близости.
-
-Пример: пользователь спрашивает:
-
-```text
-на что я трачу деньги на еду?
-```
-
-Система:
-
-1. Генерирует embedding для запроса.
-2. Сравнивает его с embedding расходов в базе.
-3. Возвращает самые похожие расходы.
-
-В проекте поиск похожих расходов выполняется SQL-запросом:
+Semantic search ищет расходы не по точному совпадению слов, а по смысловой близости:
 
 ```sql
 SELECT *
@@ -154,40 +122,13 @@ ORDER BY embedding <-> CAST(:embedding AS vector)
 LIMIT 5
 ```
 
-Оператор `<->` сравнивает расстояние между vector embeddings. Чем меньше расстояние, тем ближе смысл.
+Для некоторых тем анализа поиск дополнительно фильтруется по категориям.
 
 ### RAG
 
-RAG - Retrieval-Augmented Generation. Это подход, где LLM отвечает не только на основе своих знаний, а получает релевантный контекст из базы данных.
+RAG - Retrieval-Augmented Generation. Сначала приложение достает из базы похожие расходы, затем передает их как контекст в LLM. Так AI отвечает не абстрактно, а с учетом реальных данных пользователя.
 
-В проекте pipeline такой:
-
-1. Пользователь задает вопрос:
-
-   ```text
-   что мне сократить в расходах?
-   ```
-
-2. `VectorSearchService` ищет похожие расходы через semantic search.
-3. Найденные расходы собираются в текстовый контекст.
-4. Этот контекст добавляется в prompt.
-5. Groq LLM анализирует расходы и отвечает пользователю.
-
-Пример контекста для LLM:
-
-```text
-Категория: FOOD
-Сумма: 900
-Описание: макдак
-
-Категория: TRANSPORT
-Сумма: 340
-Описание: яндекс такси
-```
-
-Так LLM отвечает с учетом реальных расходов пользователя.
-
-## Архитектура проекта
+## Структура проекта
 
 ```text
 src/main/java/com/paata/telegram_expense_bot
@@ -202,9 +143,14 @@ src/main/java/com/paata/telegram_expense_bot
 ├── repository/ExpenseRepository.java
 ├── service
 │   ├── EmbeddingService.java
-│   ├── ExpenseAnalysisService.java
-│   ├── ExpenseService.java
-│   └── VectorSearchService.java
+│   ├── VectorSearchService.java
+│   ├── ai
+│   │   ├── ExpenseAnalysisService.java
+│   │   └── ReportQueryService.java
+│   ├── expense
+│   │   ├── ExpenseExtractorService.java
+│   │   └── ExpenseService.java
+│   └── report/ReportPeriodService.java
 ├── telegram
 │   ├── TelegramBot.java
 │   └── TelegramConfig.java
@@ -213,91 +159,16 @@ src/main/java/com/paata/telegram_expense_bot
 
 ## Основные классы
 
-### `TelegramBot`
-
-Главный обработчик Telegram updates.
-
-Он:
-
-- получает текст сообщения;
-- достает `chatId` и `userId`;
-- вызывает `GroqService.detectIntent`;
-- в зависимости от intent вызывает нужный сервис;
-- отправляет ответ обратно в Telegram.
-
-### `GroqService`
-
-Сервис для работы с Groq API.
-
-Используется для:
-
-- определения intent;
-- извлечения данных расхода;
-- AI-анализа расходов.
-
-Endpoint:
-
-```text
-https://api.groq.com/openai/v1/chat/completions
-```
-
-### `ExpenseService`
-
-Основная бизнес-логика расходов.
-
-Умеет:
-
-- сохранять расход;
-- извлекать расход из текста через LLM;
-- строить месячный отчет;
-- получать расходы за текущий месяц;
-- генерировать и сохранять embedding после сохранения расхода.
-
-### `EmbeddingService`
-
-Генерирует embedding через Jina AI.
-
-Endpoint:
-
-```text
-https://api.jina.ai/v1/embeddings
-```
-
-### `VectorSearchService`
-
-Выполняет semantic search:
-
-- генерирует embedding для пользовательского запроса;
-- конвертирует vector в формат `pgvector`;
-- ищет похожие расходы в PostgreSQL.
-
-### `ExpenseAnalysisService`
-
-Делает RAG-анализ:
-
-- ищет релевантные расходы;
-- собирает контекст;
-- отправляет контекст и вопрос пользователя в LLM;
-- возвращает аналитический ответ.
-
-### `ExpenseRepository`
-
-JPA repository для расходов.
-
-Содержит:
-
-- поиск расходов пользователя;
-- поиск расходов за период;
-- обновление поля `embedding`;
-- native SQL для vector similarity search.
-
-### `VectorUtils`
-
-Конвертирует Java `List<Float>` в строковый формат `pgvector`:
-
-```text
-[0.12,0.45,0.78]
-```
+- `TelegramBot` - принимает сообщения Telegram и маршрутизирует intent.
+- `GroqService` - вызывает Groq Chat Completions API.
+- `ExpenseExtractorService` - извлекает расходы из текста.
+- `ExpenseService` - сохраняет расходы и строит отчеты.
+- `ReportQueryService` - парсит период отчета через LLM.
+- `ReportPeriodService` - вычисляет даты отчета.
+- `EmbeddingService` - получает embeddings от Jina AI.
+- `VectorSearchService` - ищет похожие расходы через pgvector.
+- `ExpenseAnalysisService` - делает AI-анализ расходов.
+- `PromptLoader` - загружает prompt-файлы из resources.
 
 ## Модель данных
 
@@ -305,9 +176,9 @@ JPA repository для расходов.
 
 | Поле | Тип | Описание |
 | --- | --- | --- |
-| `uuid` | `UUID` | Primary key |
+| `uuid` | `UUID` | Идентификатор расхода |
 | `user_id` | `BIGINT` | Telegram user id |
-| `amount` | `NUMERIC(19,2)` | Сумма расхода |
+| `amount` | `NUMERIC(19,2)` | Сумма |
 | `category` | `VARCHAR(255)` | Категория |
 | `description` | `TEXT` | Описание |
 | `created_at` | `TIMESTAMP` | Дата создания |
@@ -323,197 +194,140 @@ JPA repository для расходов.
 - `SHOPPING`
 - `OTHER`
 
+Темы анализа:
+
+- `HEALTH`
+- `SAVINGS`
+- `FOOD`
+- `TRANSPORT`
+- `SHOPPING`
+- `GENERAL`
+
 ## Переменные окружения
 
-Секреты не хранятся в README и не должны храниться в репозитории. Создайте `.env` на основе `.env.example`:
+Создайте `.env` на основе `.env.example`:
 
 ```bash
-cp .env .env
+cp .env.example .env
 ```
 
-Для Windows PowerShell:
+Windows PowerShell:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Заполните значения:
+Пример:
 
 ```env
 POSTGRES_DB=expenses
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
 POSTGRES_USER=postgres
-POSTGRES_PASSWORD=<your_postgres_password>
+POSTGRES_PASSWORD=change_me
 
 EXPENSE_DB_USER=expense_user
-EXPENSE_DB_PASSWORD=<your_app_db_password>
+EXPENSE_DB_PASSWORD=change_me_too
 
-TELEGRAM_BOT_USERNAME=<your_bot_username>
-TELEGRAM_BOT_TOKEN=<your_telegram_bot_token>
+TELEGRAM_BOT_USERNAME=your_bot_username
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 
-GROQ_API_KEY=<your_groq_api_key>
-JINA_API_KEY=<your_jina_api_key>
+GROQ_API_KEY=your_groq_api_key
+JINA_API_KEY=your_jina_api_key
 ```
 
 Где взять ключи:
 
 - Jina AI API key: <https://jina.ai/api-dashboard/key-manager>
 - Groq API key: <https://console.groq.com/keys?utm_source=chatgpt.com>
+- Telegram bot token создается через BotFather.
 
-Telegram bot token создается через BotFather в Telegram.
-
-## Запуск через Docker Compose
-
-1. Создайте `.env`:
-
-   ```bash
-   cp .env .env
-   ```
-
-2. Заполните `.env` реальными значениями.
-
-3. Запустите приложение и базу:
-
-   ```bash
-   docker compose up --build
-   ```
-
-Будут подняты:
-
-- `telegram-expense-bot` - Spring Boot приложение.
-- `expense-postgres` - PostgreSQL 16 с `pgvector`.
-
-PostgreSQL будет доступен на:
-
-```text
-localhost:5432
-```
-
-Приложение будет доступно на:
-
-```text
-localhost:8080
-```
-
-Важно: бот работает через Telegram long polling, поэтому основной пользовательский интерфейс - это чат с ботом в Telegram.
+Не коммитьте `.env`. В репозиторий должен попадать только `.env.example`.
 
 ## Docker Compose
 
-В проекте добавлен `docker-compose.yml`:
+Запуск приложения и базы:
 
-```yaml
-services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: telegram-expense-bot
-    depends_on:
-      - postgres
-    environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/expenses?tcpKeepAlive=true
-      SPRING_DATASOURCE_USERNAME: ${EXPENSE_DB_USER}
-      SPRING_DATASOURCE_PASSWORD: ${EXPENSE_DB_PASSWORD}
-      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
-      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      JINA_API_KEY: ${JINA_API_KEY}
-    ports:
-      - "8080:8080"
+```bash
+docker-compose up --build -d
+```
 
-  postgres:
-    image: pgvector/pgvector:pg16
-    container_name: expense-postgres
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      EXPENSE_DB_USER: ${EXPENSE_DB_USER}
-      EXPENSE_DB_PASSWORD: ${EXPENSE_DB_PASSWORD}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init.sh:/docker-entrypoint-initdb.d/init.sh
+Запуск только базы:
 
-volumes:
-  postgres_data:
+```bash
+docker-compose up -d postgres
+```
+
+Логи приложения:
+
+```bash
+docker-compose logs -f app
+```
+
+Логи базы:
+
+```bash
+docker-compose logs -f postgres
+```
+
+Остановка:
+
+```bash
+docker-compose down
+```
+
+Полное пересоздание базы с удалением volume:
+
+```bash
+docker-compose down -v
+docker-compose up --build -d
 ```
 
 ## init.sh
 
-`init.sh` включает расширения PostgreSQL и создает пользователя приложения из переменных `EXPENSE_DB_USER` и `EXPENSE_DB_PASSWORD`:
+`init.sh` выполняется контейнером Postgres только при первом создании volume. Он:
 
-```sh
-CREATE EXTENSION IF NOT EXISTS vector;
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE USER "$EXPENSE_DB_USER" WITH PASSWORD "$EXPENSE_DB_PASSWORD";
-```
+- включает `vector`;
+- включает `uuid-ossp`;
+- создает пользователя приложения из `EXPENSE_DB_USER`;
+- назначает права на базу и схему `public`.
 
-Liquibase также включает эти расширения в changelog, поэтому база корректно поднимается и при обычном запуске приложения.
+Если volume уже создан, изменения в `init.sh` не применятся автоматически. Нужно либо пересоздать volume через `docker-compose down -v`, либо выполнить SQL вручную.
 
-## Локальный запуск без Docker
+## Локальный запуск
 
-Нужны:
+1. Поднимите БД:
 
-- Java 21.
-- PostgreSQL с расширением `pgvector`.
-- Maven wrapper из проекта.
-- Telegram bot token.
-- Groq API key.
-- Jina AI API key.
+   ```bash
+   docker-compose up -d postgres
+   ```
 
-Поднимите PostgreSQL отдельно, например через Docker:
+2. Заполните `.env`.
 
-```bash
-docker compose up postgres
-```
+3. Запустите приложение:
 
-Задайте переменные окружения.
-
-PowerShell:
-
-```powershell
-$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/expenses?tcpKeepAlive=true"
-$env:SPRING_DATASOURCE_USERNAME="postgres"
-$env:SPRING_DATASOURCE_PASSWORD="<your_postgres_password>"
-$env:TELEGRAM_BOT_USERNAME="<your_bot_username>"
-$env:TELEGRAM_BOT_TOKEN="<your_telegram_bot_token>"
-$env:GROQ_API_KEY="<your_groq_api_key>"
-$env:JINA_API_KEY="<your_jina_api_key>"
-.\mvnw.cmd spring-boot:run
-```
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
 
 Linux/macOS:
 
 ```bash
-export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/expenses?tcpKeepAlive=true"
-export SPRING_DATASOURCE_USERNAME="postgres"
-export SPRING_DATASOURCE_PASSWORD="<your_postgres_password>"
-export TELEGRAM_BOT_USERNAME="<your_bot_username>"
-export TELEGRAM_BOT_TOKEN="<your_telegram_bot_token>"
-export GROQ_API_KEY="<your_groq_api_key>"
-export JINA_API_KEY="<your_jina_api_key>"
 ./mvnw spring-boot:run
 ```
 
 ## Примеры сообщений боту
 
-Сохранение расходов:
+Сохранение одного расхода:
 
 ```text
 кофе 300
 ```
 
-```text
-макдак 900
-```
+Сохранение нескольких расходов:
 
 ```text
-яндекс такси 340
-```
-
-```text
-вейп 1500
+кофе 300, такси 500, сигареты 400
 ```
 
 Отчет:
@@ -522,7 +336,15 @@ export JINA_API_KEY="<your_jina_api_key>"
 отчет за месяц
 ```
 
-AI-анализ:
+```text
+отчет за последние 3 месяца
+```
+
+```text
+отчет за апрель
+```
+
+Анализ:
 
 ```text
 проанализируй мои расходы
@@ -533,83 +355,39 @@ AI-анализ:
 ```
 
 ```text
-куда уходит больше всего денег?
+что вредно для здоровья?
 ```
-
-## Как проходит сохранение расхода
-
-1. Пользователь пишет сообщение в Telegram.
-2. `TelegramBot` получает update.
-3. `GroqService.detectIntent` определяет intent.
-4. Если intent `SAVE_EXPENSE`, вызывается `ExpenseService.saveExpense`.
-5. `GroqService.ask` извлекает `amount`, `category`, `description`.
-6. Расход сохраняется в таблицу `expenses`.
-7. `EmbeddingService` создает embedding через Jina AI.
-8. `VectorUtils` конвертирует embedding в формат `pgvector`.
-9. `ExpenseRepository.updateEmbedding` сохраняет vector в PostgreSQL.
-
-## Как проходит AI-анализ
-
-1. Пользователь задает аналитический вопрос.
-2. LLM классифицирует intent как `ANALYZE`.
-3. `ExpenseAnalysisService` вызывает semantic search.
-4. `VectorSearchService` ищет похожие расходы в базе.
-5. Найденные расходы становятся контекстом.
-6. Контекст и вопрос отправляются в Groq LLM.
-7. Пользователь получает ответ с учетом своих данных.
-
-## Миграции базы
-
-Liquibase changelog:
-
-```text
-src/main/resources/db/changelog/changelog-master.yaml
-src/main/resources/db/changelog/changes/001-create-expenses-table.yaml
-```
-
-Миграция создает:
-
-- расширение `vector`;
-- расширение `uuid-ossp`;
-- таблицу `expenses`;
-- индексы по `user_id`, `category`, `created_at`;
-- vector index `idx_expenses_embedding`.
 
 ## Полезные команды
 
-Собрать проект:
+Сборка:
 
 ```bash
 ./mvnw clean package
 ```
 
-Windows:
-
-```powershell
-.\mvnw.cmd clean package
-```
-
-Запустить тесты:
+Тесты:
 
 ```bash
 ./mvnw test
 ```
 
-Остановить Docker Compose:
+Проверка контейнеров:
 
 ```bash
-docker compose down
+docker-compose ps
 ```
 
-Остановить и удалить volume базы:
+Обновление на сервере:
 
 ```bash
-docker compose down -v
+git pull
+docker-compose up --build -d
 ```
 
 ## Безопасность
 
-- Не коммитьте `.env`.
-- Не вставляйте реальные Telegram, Groq и Jina ключи в README, issue, commit messages или screenshots.
-- Для публикации проекта лучше перевыпустить ключи, если они когда-либо попадали в репозиторий.
-- В `application.yaml` используются переменные окружения, а не реальные секреты.
+- Реальные ключи храните только в `.env` или переменных окружения сервера.
+- `.env` находится в `.gitignore`.
+- В README и `.env.example` используются только placeholder-значения.
+- Если ключи когда-либо попадали в публичный репозиторий, их нужно перевыпустить.

@@ -11,34 +11,31 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.util.List;
 
 /**
- * Сервис генерации vector embeddings.
+ * Сервис генерации vector embeddings через Jina AI.
  *
- * <p>
- * Преобразует пользовательский текст
- * в vector representation.
- *
- * <p>
- * Embeddings используются для:
- * <ul>
- *     <li>semantic search</li>
- *     <li>vector similarity</li>
- *     <li>RAG pipeline</li>
- * </ul>
+ * <p>Преобразует текст в числовой вектор, который затем сохраняется в
+ * PostgreSQL pgvector и используется для semantic search и RAG.</p>
  */
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
 
+    /**
+     * HTTP-клиент для вызова Jina Embeddings API.
+     */
     private final WebClient webClient;
 
+    /**
+     * API-ключ Jina AI. Значение приходит из переменной окружения {@code JINA_API_KEY}.
+     */
     @Value("${jina.api-key}")
     private String apiKey;
 
     /**
-     * Генерирует embedding для текста.
+     * Генерирует embedding для одного текста.
      *
-     * @param text source text
-     * @return vector embedding
+     * @param text текст, который нужно представить вектором
+     * @return embedding-вектор модели {@code jina-embeddings-v3}
      */
     public List<Float> generateEmbedding(String text) {
 

@@ -7,20 +7,19 @@ import org.telegram.telegrambots.client.okhttp.OkHttpTelegramClient;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
- * Конфигурация Telegram клиента.
+ * Конфигурация клиента Telegram Bot API.
  *
- * <p>
- * Здесь создаются Spring Beans
- * для работы с Telegram API.
+ * <p>Создает {@link TelegramClient}, через который приложение отправляет
+ * сообщения пользователям в Telegram.</p>
  */
 @Configuration
 public class TelegramConfig {
 
     /**
-     * Создает TelegramClient bean.
+     * Создает клиент Telegram на основе токена бота.
      *
-     * @param botToken token Telegram бота
-     * @return telegram client
+     * @param botToken токен Telegram-бота из конфигурации
+     * @return клиент для вызовов Telegram Bot API
      */
     @Bean
     public TelegramClient telegramClient(@Value("${telegram.bot.token}") String botToken) {

@@ -15,7 +15,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Сервис для работы с Groq API.
+ * Сервис для работы с Groq Chat Completions API.
+ *
+ * <p>Отвечает за классификацию намерений пользователя и за произвольные
+ * LLM-запросы, где вызывающий код передает system prompt и сообщение
+ * пользователя.</p>
  */
 @Service
 @Slf4j
@@ -23,22 +27,32 @@ import java.util.Map;
 public class GroqService {
 
     private final PromptLoader promptLoader;
+
     /**
-     * Groq API key.
+     * API-ключ Groq. Значение приходит из переменной окружения {@code GROQ_API_KEY}.
      */
     @Value("${groq.api-key}")
     private String apiKey;
-    private final ObjectMapper objectMapper=new ObjectMapper();
 
     /**
-     * HTTP client.
+     * JSON-маппер для разбора структурированных ответов LLM.
+     */
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * HTTP-клиент для вызова внешнего Groq API.
      */
     private final WebClient webClient;
+
     /**
-     * Определяет intent пользователя.
+     * Определяет намерение пользователя по тексту сообщения.
      *
-     * @param text сообщение пользователя
-     * @return определенный intent
+     * <p>LLM должна вернуть JSON, который десериализуется в {@link IntentResponse}.
+     * Если Groq недоступен, вернул ошибку или невалидный JSON, метод возвращает
+     * безопасное значение {@link IntentType#UNKNOWN}, чтобы бот не падал.</p>
+     *
+     * @param text исходное сообщение пользователя из Telegram
+     * @return распознанное намерение и, если есть, тема анализа
      */
     public IntentResponse detectIntent(String text) {
 
@@ -103,6 +117,11 @@ public class GroqService {
         }
     }
 
+    /**
+     * Создает fallback-ответ для случаев, когда intent распознать не удалось.
+     *
+     * @return ответ с intent {@link IntentType#UNKNOWN}
+     */
     private IntentResponse unknownIntent() {
         IntentResponse intentResponse = new IntentResponse();
         intentResponse.setIntent(IntentType.UNKNOWN);
@@ -110,17 +129,14 @@ public class GroqService {
     }
 
     /**
-     * Отправляет запрос в LLM.
+     * Отправляет произвольный запрос в LLM.
      *
-     * @param userMessage сообщение пользователя
-     * @return ответ модели
+     * @param systemPrompt системная инструкция для модели
+     * @param userMessage сообщение пользователя или подготовленный запрос
+     * @return текстовый ответ модели или описание ошибки Groq API
      */
-    public String ask(String userMessage) {
+    public String ask(String systemPrompt, String userMessage) {
         try {
-            String systemPrompt =
-                    promptLoader.loadPrompt(
-                            "prompts/expense-extractor.txt"
-                    );
             Map<String, Object> requestBody = Map.of(
                     "model", "llama-3.3-70b-versatile",
                     "messages", List.of(

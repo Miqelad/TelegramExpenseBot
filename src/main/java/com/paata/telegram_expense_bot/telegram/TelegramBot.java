@@ -3,8 +3,8 @@ package com.paata.telegram_expense_bot.telegram;
 import com.paata.telegram_expense_bot.groq.service.GroqService;
 import com.paata.telegram_expense_bot.model.dto.IntentResponse;
 import com.paata.telegram_expense_bot.model.enums.IntentType;
-import com.paata.telegram_expense_bot.service.ExpenseAnalysisService;
-import com.paata.telegram_expense_bot.service.ExpenseService;
+import com.paata.telegram_expense_bot.service.ai.ExpenseAnalysisService;
+import com.paata.telegram_expense_bot.service.expense.ExpenseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,13 +15,11 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-
 /**
- * Главный Telegram bot class.
+ * Основной Telegram long polling бот.
  *
- * <p>
- * Получает updates от Telegram
- * и отвечает пользователю.
+ * <p>Получает текстовые сообщения пользователя, определяет intent через LLM,
+ * вызывает нужный бизнес-сервис и отправляет ответ обратно в чат.</p>
  */
 @Slf4j
 @Component
@@ -29,23 +27,35 @@ import org.telegram.telegrambots.meta.generics.TelegramClient;
 public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThreadUpdateConsumer {
 
     /**
-     * Telegram API client.
+     * Клиент Telegram Bot API для отправки сообщений.
      */
     private final TelegramClient telegramClient;
+
+    /**
+     * Сервис сохранения расходов и построения отчетов.
+     */
     private final ExpenseService expenseService;
+
+    /**
+     * Сервис Groq LLM для классификации намерений пользователя.
+     */
     private final GroqService groqService;
+
+    /**
+     * Сервис AI-анализа расходов через RAG и semantic search.
+     */
     private final ExpenseAnalysisService expenseAnalysisService;
 
     /**
-     * Bot token из application.yml
+     * Токен Telegram-бота из переменной окружения {@code TELEGRAM_BOT_TOKEN}.
      */
     @Value("${telegram.bot.token}")
     private String botToken;
 
     /**
-     * Возвращает bot token.
+     * Возвращает токен бота для TelegramBots long polling starter.
      *
-     * @return telegram bot token
+     * @return токен Telegram-бота
      */
     @Override
     public String getBotToken() {
@@ -53,11 +63,9 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     }
 
     /**
-     * Возвращает update consumer.
+     * Возвращает consumer, который будет обрабатывать входящие updates.
      *
-     * <p>
-     * В новых версиях TelegramBots
-     * библиотека ожидает consumer updates.
+     * @return текущий объект как single-thread consumer
      */
     @Override
     public LongPollingSingleThreadUpdateConsumer getUpdatesConsumer() {
@@ -65,9 +73,13 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     }
 
     /**
-     * Обработка Telegram update.
+     * Обрабатывает входящее событие Telegram.
      *
-     * @param update событие Telegram
+     * <p>Метод реагирует только на текстовые сообщения. Для каждого сообщения:
+     * получает user id, распознает intent, выполняет нужное действие и отправляет
+     * пользователю текстовый результат.</p>
+     *
+     * @param update входящее событие Telegram
      */
     @Override
     public void consume(Update update) {
@@ -88,11 +100,11 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
             String response;
             switch (intent) {
                 case MONTHLY_REPORT -> response = expenseService
-                        .buildMonthlyReport(userId);
+                        .buildMonthlyReport(userId, text);
                 case SAVE_EXPENSE -> response = expenseService
                         .saveExpense(text, userId);
-                case ANALYZE ->response = expenseAnalysisService
-                        .analyzeExpenses(text);
+                case ANALYZE -> response = expenseAnalysisService
+                        .analyzeExpenses(intentResponse.getTopic(), text);
                 default -> response = """
                         Не понял запрос.
                         

@@ -10,10 +10,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Expense entity.
+ * Entity расхода пользователя.
  *
- * <p>
- * Represents user expense.
+ * <p>Хранится в таблице {@code expenses}. Поле embedding создается миграцией
+ * Liquibase и обновляется отдельным native SQL запросом, поэтому в entity оно
+ * не маппится напрямую.</p>
  */
 @Entity
 @Table(name = "expenses")
@@ -26,7 +27,7 @@ import java.util.UUID;
 public class Expense {
 
     /**
-     * Primary key.
+     * Уникальный идентификатор расхода.
      */
     @Id
     @UuidGenerator
@@ -34,27 +35,30 @@ public class Expense {
     private UUID uuid;
 
     /**
-     * Telegram user id.
+     * Telegram user id владельца расхода.
      */
     @Column(name = "user_id")
     private Long userId;
 
     /**
-     * Expense amount.
+     * Сумма расхода.
      */
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal amount;
 
+    /**
+     * Нормализованная категория расхода.
+     */
     @Enumerated(EnumType.STRING)
     private ExpenseCategory category;
 
     /**
-     * Expense description.
+     * Текстовое описание расхода.
      */
     private String description;
 
     /**
-     * Expense creation date.
+     * Дата и время создания записи.
      */
     @Column(name = "created_at")
     private LocalDateTime createdAt;

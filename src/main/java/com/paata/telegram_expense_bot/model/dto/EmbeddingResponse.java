@@ -3,18 +3,18 @@ package com.paata.telegram_expense_bot.model.dto;
 import java.util.List;
 
 /**
- * Ответ embedding API.
+ * DTO ответа Jina Embeddings API.
  *
- * @param data embedding results
+ * @param data список результатов генерации embeddings
  */
 public record EmbeddingResponse(
         List<EmbeddingData> data
 ) {
 
     /**
-     * Embedding result item.
+     * Один элемент ответа с embedding-вектором.
      *
-     * @param embedding vector embedding
+     * @param embedding числовой vector embedding текста
      */
     public record EmbeddingData(
             List<Float> embedding

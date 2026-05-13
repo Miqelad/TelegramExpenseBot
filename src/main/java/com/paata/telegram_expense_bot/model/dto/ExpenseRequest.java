@@ -6,7 +6,10 @@ import lombok.Data;
 import java.math.BigDecimal;
 
 /**
- * DTO расхода.
+ * DTO одного расхода, извлеченного LLM из сообщения пользователя.
+ *
+ * <p>Используется как промежуточная структура между JSON-ответом модели
+ * и entity {@code Expense}.</p>
  */
 @Data
 public class ExpenseRequest {
@@ -17,12 +20,12 @@ public class ExpenseRequest {
     private BigDecimal amount;
 
     /**
-     * Категория.
+     * Нормализованная категория расхода.
      */
     private ExpenseCategory category;
 
     /**
-     * Описание.
+     * Короткое описание расхода из исходного сообщения.
      */
     private String description;
 }
