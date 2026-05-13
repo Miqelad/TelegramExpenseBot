@@ -10,11 +10,11 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Entity расхода пользователя.
+ * Entity расхода.
  *
- * <p>Хранится в таблице {@code expenses}. Поле embedding создается миграцией
- * Liquibase и обновляется отдельным native SQL запросом, поэтому в entity оно
- * не маппится напрямую.</p>
+ * <p>Хранится в таблице {@code expenses}. Расход сохраняет Telegram user id
+ * и username автора записи, но отчеты и AI-анализ читают общую базу расходов
+ * без фильтрации по пользователю.</p>
  */
 @Entity
 @Table(name = "expenses")
@@ -35,10 +35,16 @@ public class Expense {
     private UUID uuid;
 
     /**
-     * Telegram user id владельца расхода.
+     * Telegram user id автора расхода.
      */
     @Column(name = "user_id")
     private Long userId;
+
+    /**
+     * Telegram username автора расхода.
+     */
+    @Column(name = "username")
+    private String username;
 
     /**
      * Сумма расхода.

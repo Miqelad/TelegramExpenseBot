@@ -21,8 +21,9 @@ import java.util.stream.Collectors;
 /**
  * Основной сервис бизнес-логики расходов.
  *
- * <p>Сервис сохраняет расходы пользователя, строит отчеты за выбранный период,
- * генерирует embeddings для новых расходов и записывает vector в PostgreSQL.</p>
+ * <p>Сервис сохраняет расходы с Telegram user id и username автора, строит отчеты
+ * по всем расходам без фильтра по пользователю, генерирует embeddings для новых
+ * записей и обновляет vector в PostgreSQL.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -44,7 +45,7 @@ public class ExpenseService {
     private final ReportQueryService reportQueryService;
 
     /**
-     * AI-сервис, который извлекает один или несколько расходов из сообщения пользователя.
+     * AI-сервис, который извлекает один или несколько расходов из сообщения.
      */
     private final ExpenseExtractorService expenseExtractorService;
 
@@ -54,32 +55,19 @@ public class ExpenseService {
     private final ReportPeriodService reportPeriodService;
 
     /**
-     * Формирует отчет по расходам пользователя за период из текстового запроса.
+     * Формирует отчет по всем расходам за период из текстового запроса.
      *
-     * <p>Пользователь может попросить отчет за текущий месяц, за N месяцев,
-     * за конкретный месяц или за диапазон дат. Запрос сначала парсится через LLM,
-     * после чего расходы агрегируются по категориям.</p>
-     *
-     * @param userId Telegram user id пользователя
      * @param query исходный текст запроса отчета
      * @return готовый текст отчета для отправки в Telegram
      */
-    public String buildMonthlyReport(Long userId, String query) {
+    public String buildMonthlyReport(String query) {
         ReportRequest reportRequest = reportQueryService.parseReportQuery(query);
         ReportPeriod period = reportPeriodService.resolvePeriod(reportRequest);
         LocalDateTime startDate =
                 period.getStartDate();
-
         LocalDateTime endDate =
                 period.getEndDate();
-
-        List<Expense> expenses =
-                getExpensesForPeriod(
-                        userId,
-                        startDate,
-                        endDate
-                );
-
+        List<Expense> expenses = getExpensesForPeriod(startDate, endDate);
         if (expenses.isEmpty()) {
             return """
                 Отчет по расходам
@@ -152,22 +140,21 @@ public class ExpenseService {
     }
 
     /**
-     * Сохраняет расходы пользователя из одного текстового сообщения.
+     * Сохраняет расходы из одного текстового сообщения.
      *
      * <p>Сообщение может содержать несколько расходов. Каждый расход извлекается
      * через LLM, сохраняется в базу, после чего для него генерируется embedding
      * и обновляется поле {@code embedding} в PostgreSQL.</p>
      *
-     * @param text исходное сообщение пользователя
-     * @param userId Telegram user id пользователя
+     * @param text исходное сообщение
+     * @param userId Telegram user id автора расходов
+     * @param username Telegram username автора расходов
      * @return текстовый результат сохранения для Telegram
      */
-    public String saveExpense(String text, Long userId) {
-        List<Expense> expenses = expenseExtractorService.extractExpenses(userId, text);
+    public String saveExpense(String text, Long userId, String username) {
+        List<Expense> expenses = expenseExtractorService.extractExpenses(userId, username, text);
         for (Expense expense : expenses) {
             Expense savedExpense = expenseRepository.save(expense);
-            expense.setUserId(userId);
-            expense.setCreatedAt(LocalDateTime.now());
             String embeddingText =
                     expense.getDescription()
                             + " "
@@ -205,17 +192,15 @@ public class ExpenseService {
     }
 
     /**
-     * Возвращает расходы пользователя за указанный период.
+     * Возвращает все расходы за указанный период.
      *
-     * @param userId Telegram user id пользователя
      * @param startDate начало периода включительно
      * @param endDate конец периода включительно
-     * @return список расходов пользователя за период
+     * @return список общих расходов за период
      */
-    public List<Expense> getExpensesForPeriod(Long userId, LocalDateTime startDate, LocalDateTime endDate) {
+    public List<Expense> getExpensesForPeriod(LocalDateTime startDate, LocalDateTime endDate) {
         return expenseRepository
-                .findAllByUserIdAndCreatedAtBetween(
-                        userId,
+                .findAllByCreatedAtBetween(
                         startDate,
                         endDate
                 );

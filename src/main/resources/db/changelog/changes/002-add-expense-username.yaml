@@ -1,0 +1,18 @@
+databaseChangeLog:
+  - changeSet:
+      id: add-expense-username
+      author: paata
+      changes:
+        - addColumn:
+            tableName: expenses
+            columns:
+              - column:
+                  name: username
+                  type: VARCHAR(255)
+
+        - createIndex:
+            indexName: idx_expenses_username
+            tableName: expenses
+            columns:
+              - column:
+                  name: username

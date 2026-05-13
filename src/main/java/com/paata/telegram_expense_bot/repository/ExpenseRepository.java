@@ -14,29 +14,19 @@ import java.util.UUID;
 /**
  * Репозиторий расходов.
  *
- * <p>Помимо стандартных JPA-операций содержит native SQL запросы для обновления
- * embedding-поля и поиска похожих расходов через pgvector.</p>
+ * <p>Расходы сохраняются с Telegram user id и username автора, но методы отчетов
+ * и semantic search читают общую базу без фильтрации по пользователю.</p>
  */
 public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
 
     /**
-     * Возвращает все расходы пользователя.
+     * Возвращает все расходы за указанный период.
      *
-     * @param userId Telegram user id пользователя
-     * @return список всех расходов пользователя
-     */
-    List<Expense> findAllByUserId(Long userId);
-
-    /**
-     * Возвращает расходы пользователя в указанном диапазоне дат.
-     *
-     * @param userId Telegram user id пользователя
      * @param start начало периода включительно
      * @param end конец периода включительно
      * @return список расходов за период
      */
-    List<Expense> findAllByUserIdAndCreatedAtBetween(
-            Long userId,
+    List<Expense> findAllByCreatedAtBetween(
             LocalDateTime start,
             LocalDateTime end
     );

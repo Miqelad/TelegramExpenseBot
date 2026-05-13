@@ -16,8 +16,8 @@ import java.util.List;
  * Сервис извлечения расходов из свободного текста.
  *
  * <p>Использует LLM и prompt {@code expense-extractor.txt}, чтобы превратить
- * пользовательское сообщение в список структурированных расходов: сумма,
- * категория и описание.</p>
+ * пользовательское сообщение в список структурированных расходов. Telegram user id
+ * и username добавляются в каждую созданную entity как информация об авторе.</p>
  */
 @Service
 @RequiredArgsConstructor
@@ -42,15 +42,14 @@ public class ExpenseExtractorService {
     /**
      * Извлекает расходы из сообщения пользователя.
      *
-     * <p>Метод ожидает, что LLM вернет JSON-массив объектов {@link ExpenseRequest}.
-     * Затем каждый DTO преобразуется в entity {@link Expense}.</p>
-     *
-     * @param userId Telegram user id пользователя
+     * @param userId Telegram user id автора расходов
+     * @param username Telegram username автора расходов
      * @param text исходное сообщение пользователя
      * @return список распознанных расходов
      */
     public List<Expense> extractExpenses(
             Long userId,
+            String username,
             String text
     ) {
 
@@ -77,6 +76,7 @@ public class ExpenseExtractorService {
                     .map(dto ->
                             Expense.builder()
                                     .userId(userId)
+                                    .username(username)
                                     .amount(dto.getAmount())
                                     .category(dto.getCategory())
                                     .description(dto.getDescription())

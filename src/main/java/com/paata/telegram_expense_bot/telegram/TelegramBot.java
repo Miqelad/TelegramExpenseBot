@@ -13,13 +13,16 @@ import org.telegram.telegrambots.longpolling.starter.SpringLongPollingBot;
 import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateConsumer;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
 /**
  * Основной Telegram long polling бот.
  *
- * <p>Получает текстовые сообщения пользователя, определяет intent через LLM,
- * вызывает нужный бизнес-сервис и отправляет ответ обратно в чат.</p>
+ * <p>Получает текстовые сообщения, определяет намерение пользователя через LLM,
+ * вызывает нужный сервис и отправляет ответ обратно в чат. При сохранении расхода
+ * Telegram user id и username записываются в entity, но отчеты и анализ строятся
+ * по общей базе.</p>
  */
 @Slf4j
 @Component
@@ -32,7 +35,7 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     private final TelegramClient telegramClient;
 
     /**
-     * Сервис сохранения расходов и построения отчетов.
+     * Сервис сохранения расходов и построения общих отчетов.
      */
     private final ExpenseService expenseService;
 
@@ -42,7 +45,7 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     private final GroqService groqService;
 
     /**
-     * Сервис AI-анализа расходов через RAG и semantic search.
+     * Сервис AI-анализа общих расходов через RAG и semantic search.
      */
     private final ExpenseAnalysisService expenseAnalysisService;
 
@@ -75,9 +78,9 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     /**
      * Обрабатывает входящее событие Telegram.
      *
-     * <p>Метод реагирует только на текстовые сообщения. Для каждого сообщения:
-     * получает user id, распознает intent, выполняет нужное действие и отправляет
-     * пользователю текстовый результат.</p>
+     * <p>Метод реагирует только на текстовые сообщения. Telegram user id
+     * и username используются при сохранении расхода, а отчетные и аналитические
+     * запросы намеренно не фильтруются по пользователю.</p>
      *
      * @param update входящее событие Telegram
      */
@@ -91,6 +94,8 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                     update.getMessage()
                             .getFrom()
                             .getId();
+            String username = resolveUsername(update.getMessage().getFrom());
+
             IntentResponse intentResponse =
                     groqService.detectIntent(text);
             IntentType intent =
@@ -100,14 +105,14 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
             String response;
             switch (intent) {
                 case MONTHLY_REPORT -> response = expenseService
-                        .buildMonthlyReport(userId, text);
+                        .buildMonthlyReport(text);
                 case SAVE_EXPENSE -> response = expenseService
-                        .saveExpense(text, userId);
+                        .saveExpense(text, userId, username);
                 case ANALYZE -> response = expenseAnalysisService
                         .analyzeExpenses(intentResponse.getTopic(), text);
                 default -> response = """
                         Не понял запрос.
-                        
+
                         Попробуй:
                         - "кофе 300"
                         - "отчет за месяц"
@@ -123,5 +128,28 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                 log.error("Error while sending message", e);
             }
         }
+    }
+
+    /**
+     * Возвращает человекочитаемый никнейм автора сообщения.
+     *
+     * <p>Если Telegram username отсутствует, используется имя и фамилия.
+     * Это позволяет сохранять автора расхода даже для пользователей без публичного
+     * username.</p>
+     *
+     * @param user пользователь Telegram
+     * @return username, имя пользователя или {@code unknown}
+     */
+    private String resolveUsername(User user) {
+        if (user.getUserName() != null && !user.getUserName().isBlank()) {
+            return user.getUserName();
+        }
+
+        String fullName = ((user.getFirstName() == null ? "" : user.getFirstName())
+                + " "
+                + (user.getLastName() == null ? "" : user.getLastName()))
+                .trim();
+
+        return fullName.isBlank() ? "unknown" : fullName;
     }
 }

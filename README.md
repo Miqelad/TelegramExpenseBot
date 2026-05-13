@@ -2,13 +2,23 @@
 
 Telegram Expense Bot - это Spring Boot приложение для учета расходов через Telegram. Пользователь пишет обычным текстом, бот через LLM понимает намерение, извлекает расходы, сохраняет их в PostgreSQL, строит embeddings и использует semantic search/RAG для анализа трат.
 
+## Важная логика данных
+
+Расходы сохраняются с автором:
+
+- `user_id` - Telegram user id;
+- `username` - Telegram username, а если username отсутствует, имя/фамилия или `unknown`.
+
+При этом отчеты, semantic search и AI-анализ работают по общей базе расходов без фильтрации по пользователю. То есть бот хранит автора записи, но аналитика строится по всем сохраненным расходам.
+
 ## Возможности
 
 - Прием сообщений из Telegram через long polling.
 - Классификация намерений пользователя через Groq LLM.
 - Сохранение одного или нескольких расходов из одного сообщения.
+- Сохранение автора расхода по Telegram `user_id` и `username`.
 - Нормализация категорий расходов через LLM.
-- Отчеты за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
+- Отчеты по всем расходам за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
 - Генерация embeddings через Jina AI.
 - Хранение embeddings в PostgreSQL через pgvector.
 - Semantic search по похожим расходам.
@@ -36,21 +46,23 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 
 1. Пользователь пишет сообщение боту.
 2. `TelegramBot` получает update из Telegram.
-3. `GroqService.detectIntent` определяет intent:
+3. Из Telegram update достаются текст, chat id, user id и username.
+4. `GroqService.detectIntent` определяет intent:
    - `SAVE_EXPENSE`
    - `MONTHLY_REPORT`
    - `ANALYZE`
    - `UNKNOWN`
-4. Для сохранения расходов `ExpenseExtractorService` извлекает список расходов из текста.
-5. `ExpenseService` сохраняет расходы в PostgreSQL.
-6. `EmbeddingService` генерирует embedding для каждого расхода.
-7. `ExpenseRepository.updateEmbedding` записывает vector в поле `embedding`.
-8. Для анализа `VectorSearchService` ищет похожие расходы через pgvector.
-9. `ExpenseAnalysisService` передает релевантный контекст в LLM.
+5. Для сохранения расходов `ExpenseExtractorService` извлекает список расходов из текста.
+6. `ExpenseService` сохраняет расходы вместе с `user_id` и `username`.
+7. `EmbeddingService` генерирует embedding для каждого расхода.
+8. `ExpenseRepository.updateEmbedding` записывает vector в поле `embedding`.
+9. Для отчета `ExpenseService` берет все расходы за период без фильтра по пользователю.
+10. Для анализа `VectorSearchService` ищет похожие расходы по общей базе через pgvector.
+11. `ExpenseAnalysisService` передает релевантный контекст в LLM.
 
 ## LLM
 
-LLM используется для трех задач:
+LLM используется для четырех задач:
 
 - `intent-classifier.txt` - понять, что хочет пользователь.
 - `expense-extractor.txt` - извлечь расходы из свободного текста.
@@ -122,11 +134,11 @@ ORDER BY embedding <-> CAST(:embedding AS vector)
 LIMIT 5
 ```
 
-Для некоторых тем анализа поиск дополнительно фильтруется по категориям.
+Для некоторых тем анализа поиск дополнительно фильтруется по категориям, но не по пользователю.
 
 ### RAG
 
-RAG - Retrieval-Augmented Generation. Сначала приложение достает из базы похожие расходы, затем передает их как контекст в LLM. Так AI отвечает не абстрактно, а с учетом реальных данных пользователя.
+RAG - Retrieval-Augmented Generation. Сначала приложение достает из базы похожие расходы, затем передает их как контекст в LLM. Так AI отвечает не абстрактно, а с учетом реальных данных из общей базы расходов.
 
 ## Структура проекта
 
@@ -159,15 +171,15 @@ src/main/java/com/paata/telegram_expense_bot
 
 ## Основные классы
 
-- `TelegramBot` - принимает сообщения Telegram и маршрутизирует intent.
+- `TelegramBot` - принимает сообщения Telegram, достает `user_id`/`username` и маршрутизирует intent.
 - `GroqService` - вызывает Groq Chat Completions API.
-- `ExpenseExtractorService` - извлекает расходы из текста.
-- `ExpenseService` - сохраняет расходы и строит отчеты.
+- `ExpenseExtractorService` - извлекает расходы из текста и добавляет автора записи.
+- `ExpenseService` - сохраняет расходы и строит общие отчеты.
 - `ReportQueryService` - парсит период отчета через LLM.
 - `ReportPeriodService` - вычисляет даты отчета.
 - `EmbeddingService` - получает embeddings от Jina AI.
-- `VectorSearchService` - ищет похожие расходы через pgvector.
-- `ExpenseAnalysisService` - делает AI-анализ расходов.
+- `VectorSearchService` - ищет похожие расходы через pgvector по общей базе.
+- `ExpenseAnalysisService` - делает AI-анализ расходов через RAG.
 - `PromptLoader` - загружает prompt-файлы из resources.
 
 ## Модель данных
@@ -177,7 +189,8 @@ src/main/java/com/paata/telegram_expense_bot
 | Поле | Тип | Описание |
 | --- | --- | --- |
 | `uuid` | `UUID` | Идентификатор расхода |
-| `user_id` | `BIGINT` | Telegram user id |
+| `user_id` | `BIGINT` | Telegram user id автора расхода |
+| `username` | `VARCHAR(255)` | Telegram username или fallback-имя автора |
 | `amount` | `NUMERIC(19,2)` | Сумма |
 | `category` | `VARCHAR(255)` | Категория |
 | `description` | `TEXT` | Описание |
@@ -283,7 +296,7 @@ docker-compose down -v
 docker-compose up --build -d
 ```
 
-## init.sh
+## init.sh и миграции
 
 `init.sh` выполняется контейнером Postgres только при первом создании volume. Он:
 
@@ -292,7 +305,10 @@ docker-compose up --build -d
 - создает пользователя приложения из `EXPENSE_DB_USER`;
 - назначает права на базу и схему `public`.
 
-Если volume уже создан, изменения в `init.sh` не применятся автоматически. Нужно либо пересоздать volume через `docker-compose down -v`, либо выполнить SQL вручную.
+Liquibase миграции:
+
+- `001-create-expenses-table.yaml` - создает таблицу расходов, pgvector и индексы.
+- `002-add-expense-username.yaml` - добавляет поле `username` и индекс для существующих баз.
 
 ## Локальный запуск
 
@@ -330,7 +346,7 @@ Linux/macOS:
 кофе 300, такси 500, сигареты 400
 ```
 
-Отчет:
+Отчет по общей базе:
 
 ```text
 отчет за месяц
@@ -344,7 +360,7 @@ Linux/macOS:
 отчет за апрель
 ```
 
-Анализ:
+Анализ по общей базе:
 
 ```text
 проанализируй мои расходы
