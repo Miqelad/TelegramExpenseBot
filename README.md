@@ -328,7 +328,7 @@ JPA repository для расходов.
 Секреты не хранятся в README и не должны храниться в репозитории. Создайте `.env` на основе `.env.example`:
 
 ```bash
-cp .env.example .env
+cp .env .env
 ```
 
 Для Windows PowerShell:
@@ -363,7 +363,7 @@ Telegram bot token создается через BotFather в Telegram.
 1. Создайте `.env`:
 
    ```bash
-   cp .env.example .env
+   cp .env .env
    ```
 
 2. Заполните `.env` реальными значениями.
