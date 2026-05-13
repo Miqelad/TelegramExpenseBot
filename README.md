@@ -344,6 +344,9 @@ POSTGRES_DB=expenses
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=<your_postgres_password>
 
+EXPENSE_DB_USER=expense_user
+EXPENSE_DB_PASSWORD=<your_app_db_password>
+
 TELEGRAM_BOT_USERNAME=<your_bot_username>
 TELEGRAM_BOT_TOKEN=<your_telegram_bot_token>
 
@@ -408,8 +411,8 @@ services:
       - postgres
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/expenses?tcpKeepAlive=true
-      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
-      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SPRING_DATASOURCE_USERNAME: ${EXPENSE_DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${EXPENSE_DB_PASSWORD}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       GROQ_API_KEY: ${GROQ_API_KEY}
@@ -424,23 +427,26 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      EXPENSE_DB_USER: ${EXPENSE_DB_USER}
+      EXPENSE_DB_PASSWORD: ${EXPENSE_DB_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh
 
 volumes:
   postgres_data:
 ```
 
-## init.sql
+## init.sh
 
-`init.sql` включает расширения PostgreSQL:
+`init.sh` включает расширения PostgreSQL и создает пользователя приложения из переменных `EXPENSE_DB_USER` и `EXPENSE_DB_PASSWORD`:
 
-```sql
+```sh
 CREATE EXTENSION IF NOT EXISTS vector;
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE USER "$EXPENSE_DB_USER" WITH PASSWORD "$EXPENSE_DB_PASSWORD";
 ```
 
 Liquibase также включает эти расширения в changelog, поэтому база корректно поднимается и при обычном запуске приложения.

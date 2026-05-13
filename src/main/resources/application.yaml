@@ -7,8 +7,8 @@ spring:
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:expenses}?tcpKeepAlive=true}
-    username: ${POSTGRES_USER:postgres}
-    password: ${POSTGRES_PASSWORD}
+    username: ${SPRING_DATASOURCE_USERNAME:${EXPENSE_DB_USER:postgres}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${EXPENSE_DB_PASSWORD:${POSTGRES_PASSWORD}}}
 
   jpa:
     hibernate:
