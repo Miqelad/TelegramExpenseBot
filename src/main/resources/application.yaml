@@ -23,6 +23,8 @@ telegram:
   bot:
     username: ${TELEGRAM_BOT_USERNAME:paata_ai_business_bot}
     token: ${TELEGRAM_BOT_TOKEN}
+    response-chat-id: "${TELEGRAM_RESPONSE_CHAT_ID:}"
+    response-thread-id: "${TELEGRAM_RESPONSE_THREAD_ID:}"
 groq:
   api-key: ${GROQ_API_KEY}
 jina:

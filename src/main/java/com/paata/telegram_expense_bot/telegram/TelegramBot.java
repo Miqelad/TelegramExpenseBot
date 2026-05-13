@@ -56,6 +56,24 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     private String botToken;
 
     /**
+     * Опциональный chat id, куда бот должен отправлять ответы.
+     *
+     * <p>Если значение не задано, ответ отправляется в тот же чат,
+     * из которого пришло сообщение.</p>
+     */
+    @Value("${telegram.bot.response-chat-id:}")
+    private String responseChatId;
+
+    /**
+     * Опциональный id темы Telegram-группы, куда бот должен отправлять ответы.
+     *
+     * <p>Если значение не задано, ответ отправляется в ту же тему,
+     * из которой пришло сообщение. Для обычных чатов значение остается пустым.</p>
+     */
+    @Value("${telegram.bot.response-thread-id:}")
+    private String responseThreadId;
+
+    /**
      * Возвращает токен бота для TelegramBots long polling starter.
      *
      * @return токен Telegram-бота
@@ -88,7 +106,8 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     public void consume(Update update) {
         if (update.hasMessage() && update.getMessage().hasText()) {
             String text = update.getMessage().getText();
-            Long chatId = update.getMessage().getChatId();
+            Long incomingChatId = update.getMessage().getChatId();
+            Integer incomingThreadId = update.getMessage().getMessageThreadId();
             log.info("Received message: {}", text);
             Long userId =
                     update.getMessage()
@@ -110,6 +129,9 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                         .saveExpense(text, userId, username);
                 case ANALYZE -> response = expenseAnalysisService
                         .analyzeExpenses(intentResponse.getTopic(), text);
+                case UNKNOWN -> {
+                    return;
+                }
                 default -> response = """
                         Не понял запрос.
 
@@ -118,10 +140,15 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                         - "отчет за месяц"
                         """;
             }
-            SendMessage sendMessage = SendMessage.builder()
-                    .chatId(chatId)
-                    .text(response)
-                    .build();
+            Long targetChatId = resolveTargetChatId(incomingChatId);
+            Integer targetThreadId = resolveTargetThreadId(incomingThreadId);
+            var sendMessageBuilder = SendMessage.builder()
+                    .chatId(targetChatId)
+                    .text(response);
+            if (targetThreadId != null) {
+                sendMessageBuilder.messageThreadId(targetThreadId);
+            }
+            SendMessage sendMessage = sendMessageBuilder.build();
             try {
                 telegramClient.execute(sendMessage);
             } catch (Exception e) {
@@ -151,5 +178,41 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                 .trim();
 
         return fullName.isBlank() ? "unknown" : fullName;
+    }
+
+    /**
+     * Определяет чат, куда нужно отправить ответ.
+     *
+     * <p>Если переменная окружения {@code TELEGRAM_RESPONSE_CHAT_ID} пустая,
+     * используется входящий chat id и бот отвечает как обычный Telegram-бот:
+     * туда же, где его спросили.</p>
+     *
+     * @param incomingChatId chat id входящего сообщения
+     * @return chat id для отправки ответа
+     */
+    private Long resolveTargetChatId(Long incomingChatId) {
+        if (responseChatId == null || responseChatId.isBlank()) {
+            return incomingChatId;
+        }
+
+        return Long.parseLong(responseChatId.trim());
+    }
+
+    /**
+     * Определяет тему Telegram-группы, куда нужно отправить ответ.
+     *
+     * <p>Если переменная окружения {@code TELEGRAM_RESPONSE_THREAD_ID} пустая,
+     * используется thread id входящего сообщения. Если сообщение пришло из обычного
+     * чата без тем, thread id будет {@code null} и в Telegram API он не передается.</p>
+     *
+     * @param incomingThreadId thread id входящего сообщения
+     * @return thread id для отправки ответа или {@code null}
+     */
+    private Integer resolveTargetThreadId(Integer incomingThreadId) {
+        if (responseThreadId == null || responseThreadId.isBlank()) {
+            return incomingThreadId;
+        }
+
+        return Integer.parseInt(responseThreadId.trim());
     }
 }

@@ -14,6 +14,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 ## Возможности
 
 - Прием сообщений из Telegram через long polling.
+- Ответ в исходный чат/тему по умолчанию или в заданный через env чат/тему.
 - Классификация намерений пользователя через Groq LLM.
 - Сохранение одного или нескольких расходов из одного сообщения.
 - Сохранение автора расхода по Telegram `user_id` и `username`.
@@ -46,7 +47,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 
 1. Пользователь пишет сообщение боту.
 2. `TelegramBot` получает update из Telegram.
-3. Из Telegram update достаются текст, chat id, user id и username.
+3. Из Telegram update достаются текст, chat id, thread id, user id и username.
 4. `GroqService.detectIntent` определяет intent:
    - `SAVE_EXPENSE`
    - `MONTHLY_REPORT`
@@ -59,6 +60,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 9. Для отчета `ExpenseService` берет все расходы за период без фильтра по пользователю.
 10. Для анализа `VectorSearchService` ищет похожие расходы по общей базе через pgvector.
 11. `ExpenseAnalysisService` передает релевантный контекст в LLM.
+12. Ответ отправляется в исходный чат/тему или в чат/тему из env-переменных.
 
 ## LLM
 
@@ -171,7 +173,7 @@ src/main/java/com/paata/telegram_expense_bot
 
 ## Основные классы
 
-- `TelegramBot` - принимает сообщения Telegram, достает `user_id`/`username` и маршрутизирует intent.
+- `TelegramBot` - принимает сообщения Telegram, достает `user_id`/`username`, маршрутизирует intent и выбирает чат/тему для ответа.
 - `GroqService` - вызывает Groq Chat Completions API.
 - `ExpenseExtractorService` - извлекает расходы из текста и добавляет автора записи.
 - `ExpenseService` - сохраняет расходы и строит общие отчеты.
@@ -244,10 +246,29 @@ EXPENSE_DB_PASSWORD=change_me_too
 
 TELEGRAM_BOT_USERNAME=your_bot_username
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_RESPONSE_CHAT_ID=
+TELEGRAM_RESPONSE_THREAD_ID=
 
 GROQ_API_KEY=your_groq_api_key
 JINA_API_KEY=your_jina_api_key
 ```
+
+### Куда бот отправляет ответы
+
+По умолчанию `TELEGRAM_RESPONSE_CHAT_ID` и `TELEGRAM_RESPONSE_THREAD_ID` пустые. В таком режиме бот отвечает как обычный Telegram-бот: в тот же чат и в ту же тему, где его спросили.
+
+Если нужно, чтобы ответы всегда уходили в конкретную группу или тему, заполните переменные:
+
+```env
+TELEGRAM_RESPONSE_CHAT_ID=-100xxxxxxxxxx
+TELEGRAM_RESPONSE_THREAD_ID=2
+```
+
+`TELEGRAM_RESPONSE_CHAT_ID` - id чата или группы, куда отправлять ответы. Для супергрупп Telegram id обычно начинается с `-100`.
+
+`TELEGRAM_RESPONSE_THREAD_ID` - id темы внутри Telegram-группы. Если чат без тем или нужно отвечать просто в группу, оставьте переменную пустой.
+
+Важно: эти параметры отвечают именно за место отправки ответа. Расходы все равно сохраняются с `user_id` и `username` автора входящего сообщения.
 
 Где взять ключи:
 
