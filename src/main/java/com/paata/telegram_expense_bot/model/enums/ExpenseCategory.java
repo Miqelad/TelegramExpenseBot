@@ -5,38 +5,66 @@ package com.paata.telegram_expense_bot.model.enums;
  */
 public enum ExpenseCategory {
 
-    /**
-     * Еда, кафе, рестораны, продукты.
-     */
-    FOOD,
+    // Еда
+    GROCERIES,
+    RESTAURANTS,
+    COFFEE,
+    ALCOHOL,
 
-    /**
-     * Такси, общественный транспорт, поездки.
-     */
+    // Транспорт
     TRANSPORT,
+    TAXI,
+    FUEL,
+    CAR,
 
-    /**
-     * Табак, сигареты, вейпы и похожие траты.
-     */
-    TOBACCO,
+    // Дом
+    RENT,
+    UTILITIES,
+    HOME,
 
-    /**
-     * Развлечения, досуг, подписки, кино.
-     */
-    ENTERTAINMENT,
-
-    /**
-     * Здоровье, аптеки, медицина.
-     */
+    // Здоровье
     HEALTH,
+    PHARMACY,
+    FITNESS,
 
-    /**
-     * Покупки и товары.
-     */
+    // Уход
+    SELFCARE,
+    COSMETICS,
+
+    // Животные
+    PET,
+
+    // Социальное
+    FRIENDS,
+    GIFTS,
+    DATES,
+
+    // Развлечения
+    ENTERTAINMENT,
+    GAMES,
+    TRAVEL,
+
+    // Покупки
     SHOPPING,
+    CLOTHES,
+    ELECTRONICS,
 
-    /**
-     * Прочие расходы, которые не подходят под другие категории.
-     */
+    // Digital / IT
+    DIGITAL_SERVICES,
+    SERVERS,
+    SOFTWARE,
+    SUBSCRIPTIONS,
+    EDUCATION,
+    WORK_EXPENSES,
+
+    // Финансы
+    CREDIT_PAYMENT,
+    TAXES,
+    INSURANCE,
+
+    // Привычки
+    TOBACCO,
+    VAPE,
+
     OTHER
 }

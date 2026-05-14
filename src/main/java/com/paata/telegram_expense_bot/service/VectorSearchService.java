@@ -79,25 +79,51 @@ public class VectorSearchService {
 
             case HEALTH -> List.of(
                     "TOBACCO",
-                    "FOOD"
+                    "VAPE",
+                    "ALCOHOL",
+                    "HEALTH",
+                    "PHARMACY",
+                    "FITNESS"
             );
 
             case SAVINGS -> List.of(
+                    "RESTAURANTS",
+                    "COFFEE",
+                    "ALCOHOL",
+                    "TAXI",
                     "SHOPPING",
+                    "CLOTHES",
+                    "ELECTRONICS",
                     "ENTERTAINMENT",
-                    "TOBACCO"
+                    "GAMES",
+                    "DIGITAL_SERVICES",
+                    "SERVERS",
+                    "SOFTWARE",
+                    "SUBSCRIPTIONS",
+                    "TOBACCO",
+                    "VAPE"
             );
 
             case FOOD -> List.of(
-                    "FOOD"
+                    "GROCERIES",
+                    "RESTAURANTS",
+                    "COFFEE",
+                    "ALCOHOL"
             );
 
             case TRANSPORT -> List.of(
-                    "TRANSPORT"
+                    "TRANSPORT",
+                    "TAXI",
+                    "FUEL",
+                    "CAR"
             );
 
             case SHOPPING -> List.of(
-                    "SHOPPING"
+                    "SHOPPING",
+                    "CLOTHES",
+                    "ELECTRONICS",
+                    "HOME",
+                    "COSMETICS"
             );
 
             default -> List.of();

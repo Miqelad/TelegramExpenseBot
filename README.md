@@ -18,7 +18,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 - Классификация намерений пользователя через Groq LLM.
 - Сохранение одного или нескольких расходов из одного сообщения.
 - Сохранение автора расхода по Telegram `user_id` и `username`.
-- Нормализация категорий расходов через LLM.
+- Нормализация расходов через LLM в расширенный набор категорий: еда, транспорт, дом, здоровье, уход, животные, социальные траты, развлечения, покупки, digital/IT, финансы и привычки.
 - Отчеты по всем расходам за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
 - Генерация embeddings через Jina AI.
 - Хранение embeddings в PostgreSQL через pgvector.
@@ -83,12 +83,12 @@ LLM может вернуть список расходов:
 [
   {
     "amount": 300,
-    "category": "FOOD",
+    "category": "COFFEE",
     "description": "кофе"
   },
   {
     "amount": 500,
-    "category": "TRANSPORT",
+    "category": "TAXI",
     "description": "такси"
   }
 ]
@@ -201,12 +201,43 @@ src/main/java/com/paata/telegram_expense_bot
 
 Категории:
 
-- `FOOD`
+- `GROCERIES`
+- `RESTAURANTS`
+- `COFFEE`
+- `ALCOHOL`
 - `TRANSPORT`
-- `TOBACCO`
-- `ENTERTAINMENT`
+- `TAXI`
+- `FUEL`
+- `CAR`
+- `RENT`
+- `UTILITIES`
+- `HOME`
 - `HEALTH`
+- `PHARMACY`
+- `FITNESS`
+- `SELFCARE`
+- `COSMETICS`
+- `PET`
+- `FRIENDS`
+- `GIFTS`
+- `DATES`
+- `ENTERTAINMENT`
+- `GAMES`
+- `TRAVEL`
 - `SHOPPING`
+- `CLOTHES`
+- `ELECTRONICS`
+- `DIGITAL_SERVICES`
+- `SERVERS`
+- `SOFTWARE`
+- `SUBSCRIPTIONS`
+- `EDUCATION`
+- `WORK_EXPENSES`
+- `CREDIT_PAYMENT`
+- `TAXES`
+- `INSURANCE`
+- `TOBACCO`
+- `VAPE`
 - `OTHER`
 
 Темы анализа:
