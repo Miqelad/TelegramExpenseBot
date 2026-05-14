@@ -125,6 +125,8 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
             switch (intent) {
                 case MONTHLY_REPORT -> response = expenseService
                         .buildMonthlyReport(text);
+                case CATEGORY_REPORT -> response = expenseService
+                        .buildCategoryReport(text);
                 case SAVE_EXPENSE -> response = expenseService
                         .saveExpense(text, userId, username);
                 case ANALYZE -> response = expenseAnalysisService
@@ -138,6 +140,7 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                         Попробуй:
                         - "кофе 300"
                         - "отчет за месяц"
+                        - "отчет по кофе за месяц"
                         """;
             }
             Long targetChatId = resolveTargetChatId(incomingChatId);

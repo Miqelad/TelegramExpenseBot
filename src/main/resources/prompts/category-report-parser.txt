@@ -1,0 +1,122 @@
+Определи параметры отчета по категории или теме расходов.
+
+Возвращай только JSON.
+Без markdown.
+Без пояснений.
+
+Формат:
+
+{
+  "category": "КАТЕГОРИЯ",
+  "descriptionQuery": "поисковый текст",
+  "months": число,
+  "month": "месяц",
+  "dateFrom": "yyyy-MM-dd",
+  "dateTo": "yyyy-MM-dd"
+}
+
+Правила:
+- category должна быть одной из категорий ниже или null
+- descriptionQuery используй для конкретного слова/сервиса/места из запроса
+- если пользователь просит широкую категорию, descriptionQuery может быть null
+- если пользователь просит конкретную тему внутри категории, заполни и category, и descriptionQuery
+- если пользователь пишет "кофе", category = "COFFEE", descriptionQuery = null
+- если пользователь пишет "яндекс такси", category = "TAXI", descriptionQuery = "яндекс такси"
+- если пользователь пишет "chatgpt", category = "DIGITAL_SERVICES", descriptionQuery = "chatgpt"
+- если категорию определить нельзя, category = null, а descriptionQuery заполни словами из запроса
+- если пользователь просит отчет за несколько месяцев, заполни months
+- если пользователь указал месяц, заполни month на английском: JANUARY, FEBRUARY, MARCH, APRIL, MAY, JUNE, JULY, AUGUST, SEPTEMBER, OCTOBER, NOVEMBER, DECEMBER
+- если даты не указаны, оставь months, month, dateFrom, dateTo равными null
+- если пользователь не указал год, используй текущий год
+- текущий год: 2026
+- не добавляй лишние поля
+- ответ должен быть валидным JSON объектом
+
+Категории:
+
+GROCERIES - продукты и еда для дома
+RESTAURANTS - кафе, рестораны, доставка еды
+COFFEE - кофейни и напитки
+ALCOHOL - алкоголь
+TRANSPORT - общественный транспорт
+TAXI - такси и ride-sharing
+FUEL - бензин и зарядка авто
+CAR - обслуживание автомобиля
+RENT - аренда жилья
+UTILITIES - коммунальные услуги и связь
+HOME - товары для дома
+HEALTH - медицинские услуги
+PHARMACY - лекарства
+FITNESS - спорт и фитнес
+SELFCARE - стрижка, маникюр, салоны
+COSMETICS - косметика и уход
+PET - любые расходы на животных
+FRIENDS - тусовки и отдых с друзьями
+GIFTS - подарки и скидывания
+DATES - свидания
+ENTERTAINMENT - развлечения
+GAMES - игры и донаты
+TRAVEL - путешествия
+SHOPPING - прочие покупки
+CLOTHES - одежда
+ELECTRONICS - техника
+DIGITAL_SERVICES - AI и цифровые сервисы
+SERVERS - VPS, хостинги, серверы
+SOFTWARE - программы и лицензии
+SUBSCRIPTIONS - подписки
+EDUCATION - обучение
+WORK_EXPENSES - рабочие расходы
+CREDIT_PAYMENT - кредиты и кредитки
+TAXES - налоги
+INSURANCE - страховки
+TOBACCO - сигареты и табак
+VAPE - вейпы и жидкости
+OTHER - прочее
+
+Примеры:
+
+"дай отчет по кофе за месяц"
+
+{
+  "category": "COFFEE",
+  "descriptionQuery": null,
+  "months": null,
+  "month": null,
+  "dateFrom": null,
+  "dateTo": null
+}
+
+"сколько ушло на яндекс такси в апреле"
+
+{
+  "category": "TAXI",
+  "descriptionQuery": "яндекс такси",
+  "months": null,
+  "month": "APRIL",
+  "dateFrom": null,
+  "dateTo": null
+}
+
+"покажи chatgpt за последние 3 месяца"
+
+{
+  "category": "DIGITAL_SERVICES",
+  "descriptionQuery": "chatgpt",
+  "months": 3,
+  "month": null,
+  "dateFrom": null,
+  "dateTo": null
+}
+
+"отчет по продуктам с 1 мая по 10 мая"
+
+{
+  "category": "GROCERIES",
+  "descriptionQuery": null,
+  "months": null,
+  "month": null,
+  "dateFrom": "2026-05-01",
+  "dateTo": "2026-05-10"
+}
+
+Возвращай только JSON.

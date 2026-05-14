@@ -20,6 +20,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 - Сохранение автора расхода по Telegram `user_id` и `username`.
 - Нормализация расходов через LLM в расширенный набор категорий: еда, транспорт, дом, здоровье, уход, животные, социальные траты, развлечения, покупки, digital/IT, финансы и привычки.
 - Отчеты по всем расходам за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
+- Отчеты по конкретной категории или теме расходов с детализацией по описаниям, списком операций и AI-сводкой.
 - Генерация embeddings через Jina AI.
 - Хранение embeddings в PostgreSQL через pgvector.
 - Semantic search по похожим расходам.
@@ -51,24 +52,28 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 4. `GroqService.detectIntent` определяет intent:
    - `SAVE_EXPENSE`
    - `MONTHLY_REPORT`
+   - `CATEGORY_REPORT`
    - `ANALYZE`
    - `UNKNOWN`
 5. Для сохранения расходов `ExpenseExtractorService` извлекает список расходов из текста.
 6. `ExpenseService` сохраняет расходы вместе с `user_id` и `username`.
 7. `EmbeddingService` генерирует embedding для каждого расхода.
 8. `ExpenseRepository.updateEmbedding` записывает vector в поле `embedding`.
-9. Для отчета `ExpenseService` берет все расходы за период без фильтра по пользователю.
-10. Для анализа `VectorSearchService` ищет похожие расходы по общей базе через pgvector.
-11. `ExpenseAnalysisService` передает релевантный контекст в LLM.
-12. Ответ отправляется в исходный чат/тему или в чат/тему из env-переменных.
+9. Для общего отчета `ExpenseService` берет все расходы за период без фильтра по пользователю.
+10. Для отчета по категории `CategoryReportQueryService` извлекает категорию, поисковый текст и период, а `ExpenseService` группирует расходы по описаниям и добавляет AI-сводку.
+11. Для анализа `VectorSearchService` ищет похожие расходы по общей базе через pgvector.
+12. `ExpenseAnalysisService` передает релевантный контекст в LLM.
+13. Ответ отправляется в исходный чат/тему или в чат/тему из env-переменных.
 
 ## LLM
 
-LLM используется для четырех задач:
+LLM используется для нескольких задач:
 
 - `intent-classifier.txt` - понять, что хочет пользователь.
 - `expense-extractor.txt` - извлечь расходы из свободного текста.
 - `report-parser.txt` - понять период отчета.
+- `category-report-parser.txt` - понять категорию, тему расходов и период для детального отчета.
+- `category-report-summary.txt` - сформировать короткую сводку по отчету категории.
 - `analyze-expenses.txt` - сформировать финансовый анализ.
 
 Пример сообщения:
@@ -159,6 +164,7 @@ src/main/java/com/paata/telegram_expense_bot
 │   ├── EmbeddingService.java
 │   ├── VectorSearchService.java
 │   ├── ai
+│   │   ├── CategoryReportQueryService.java
 │   │   ├── ExpenseAnalysisService.java
 │   │   └── ReportQueryService.java
 │   ├── expense
@@ -176,8 +182,9 @@ src/main/java/com/paata/telegram_expense_bot
 - `TelegramBot` - принимает сообщения Telegram, достает `user_id`/`username`, маршрутизирует intent и выбирает чат/тему для ответа.
 - `GroqService` - вызывает Groq Chat Completions API.
 - `ExpenseExtractorService` - извлекает расходы из текста и добавляет автора записи.
-- `ExpenseService` - сохраняет расходы и строит общие отчеты.
+- `ExpenseService` - сохраняет расходы, строит общие отчеты и отчеты по категории/теме расходов.
 - `ReportQueryService` - парсит период отчета через LLM.
+- `CategoryReportQueryService` - парсит категорию, поисковый текст и период для детального отчета.
 - `ReportPeriodService` - вычисляет даты отчета.
 - `EmbeddingService` - получает embeddings от Jina AI.
 - `VectorSearchService` - ищет похожие расходы через pgvector по общей базе.
@@ -410,6 +417,20 @@ Linux/macOS:
 
 ```text
 отчет за апрель
+```
+
+Отчет по категории или теме:
+
+```text
+отчет по кофе за месяц
+```
+
+```text
+сколько ушло на такси в апреле
+```
+
+```text
+покажи расходы на chatgpt за последние 3 месяца
 ```
 
 Анализ по общей базе:

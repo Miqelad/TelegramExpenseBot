@@ -15,8 +15,8 @@ import lombok.Data;
 public class IntentResponse {
 
     /**
-     * Намерение пользователя: сохранить расход, построить отчет, выполнить анализ
-     * или fallback {@code UNKNOWN}.
+     * Намерение пользователя: сохранить расход, построить общий отчет, построить
+     * отчет по категории, выполнить анализ или fallback {@code UNKNOWN}.
      */
     private IntentType intent;
 

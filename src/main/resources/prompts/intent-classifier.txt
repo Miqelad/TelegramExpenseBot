@@ -3,6 +3,7 @@
 Доступные intents:
 - SAVE_EXPENSE
 - MONTHLY_REPORT
+- CATEGORY_REPORT
 - ANALYZE
 - UNKNOWN
 
@@ -18,7 +19,8 @@
 
 Правила:
 - Если пользователь хочет добавить расход → SAVE_EXPENSE
-- Если пользователь просит отчет → MONTHLY_REPORT
+- Если пользователь просит общий отчет по всем расходам → MONTHLY_REPORT
+- Если пользователь просит отчет, сумму, список или детализацию по конкретной категории, сервису, месту или теме расходов → CATEGORY_REPORT
 - Если пользователь анализирует привычки или траты → ANALYZE
 - Если intent непонятен → UNKNOWN
 
@@ -42,6 +44,24 @@
 
 {
   "intent": "MONTHLY_REPORT"
+}
+
+"дай отчет по кофе за месяц"
+
+{
+  "intent": "CATEGORY_REPORT"
+}
+
+"сколько ушло на такси в апреле?"
+
+{
+  "intent": "CATEGORY_REPORT"
+}
+
+"покажи расходы на chatgpt за последние 3 месяца"
+
+{
+  "intent": "CATEGORY_REPORT"
 }
 
 Возвращай только JSON.
