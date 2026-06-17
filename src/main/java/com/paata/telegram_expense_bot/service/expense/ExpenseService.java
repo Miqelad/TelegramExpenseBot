@@ -123,7 +123,7 @@ public class ExpenseService {
                                 """
                                 %s - %s RUB
                                 """.formatted(
-                                        entry.getKey(),
+                                        entry.getKey().getDisplayName(),
                                         entry.getValue()
                                 )
                         )
