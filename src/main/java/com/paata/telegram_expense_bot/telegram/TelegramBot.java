@@ -96,68 +96,131 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     /**
      * Обрабатывает входящее событие Telegram.
      *
-     * <p>Метод реагирует только на текстовые сообщения. Telegram user id
-     * и username используются при сохранении расхода, а отчетные и аналитические
-     * запросы намеренно не фильтруются по пользователю.</p>
+     * <p>Бот реагирует только на текстовые сообщения из настроенного чата
+     * и (при наличии настройки) только из указанной темы Telegram.
+     *
+     * <p>Сообщения из других чатов или тем игнорируются до вызова LLM,
+     * чтобы не тратить токены и ресурсы на обработку нерелевантных сообщений.
      *
      * @param update входящее событие Telegram
      */
     @Override
     public void consume(Update update) {
-        if (update.hasMessage() && update.getMessage().hasText()) {
-            String text = update.getMessage().getText();
-            Long incomingChatId = update.getMessage().getChatId();
-            Integer incomingThreadId = update.getMessage().getMessageThreadId();
-            log.info("Received message: {}", text);
-            Long userId =
-                    update.getMessage()
-                            .getFrom()
-                            .getId();
-            String username = resolveUsername(update.getMessage().getFrom());
-
-            IntentResponse intentResponse =
-                    groqService.detectIntent(text);
-            IntentType intent =
-                    intentResponse == null || intentResponse.getIntent() == null
-                            ? IntentType.UNKNOWN
-                            : intentResponse.getIntent();
-            String response;
-            switch (intent) {
-                case MONTHLY_REPORT -> response = expenseService
-                        .buildMonthlyReport(text);
-                case CATEGORY_REPORT -> response = expenseService
-                        .buildCategoryReport(text);
-                case SAVE_EXPENSE -> response = expenseService
-                        .saveExpense(text, userId, username);
-                case ANALYZE -> response = expenseAnalysisService
-                        .analyzeExpenses(intentResponse.getTopic(), text);
-                case UNKNOWN -> {
-                    return;
-                }
-                default -> response = """
-                        Не понял запрос.
-
-                        Попробуй:
-                        - "кофе 300"
-                        - "отчет за месяц"
-                        - "отчет по кофе за месяц"
-                        """;
-            }
-            Long targetChatId = resolveTargetChatId(incomingChatId);
-            Integer targetThreadId = resolveTargetThreadId(incomingThreadId);
-            var sendMessageBuilder = SendMessage.builder()
-                    .chatId(targetChatId)
-                    .text(response);
-            if (targetThreadId != null) {
-                sendMessageBuilder.messageThreadId(targetThreadId);
-            }
-            SendMessage sendMessage = sendMessageBuilder.build();
-            try {
-                telegramClient.execute(sendMessage);
-            } catch (Exception e) {
-                log.error("Error while sending message", e);
-            }
+        if (!update.hasMessage() || !update.getMessage().hasText()) {
+            return;
         }
+
+        String text = update.getMessage().getText();
+        Long incomingChatId = update.getMessage().getChatId();
+        Integer incomingThreadId = update.getMessage().getMessageThreadId();
+
+        Long targetChatId = resolveTargetChatId(incomingChatId);
+        Integer targetThreadId = resolveTargetThreadId(incomingThreadId);
+
+        if (!isAllowedMessage(
+                incomingChatId,
+                incomingThreadId,
+                targetChatId,
+                targetThreadId)) {
+            return;
+        }
+        log.info("Received message: {}", text);
+        Long userId = update.getMessage()
+                .getFrom()
+                .getId();
+        String username = resolveUsername(update.getMessage().getFrom());
+
+        IntentResponse intentResponse = groqService.detectIntent(text);
+
+        IntentType intent =
+                intentResponse == null || intentResponse.getIntent() == null
+                        ? IntentType.UNKNOWN
+                        : intentResponse.getIntent();
+
+        String response;
+
+        switch (intent) {
+            case MONTHLY_REPORT -> response = expenseService.buildMonthlyReport(text);
+
+            case CATEGORY_REPORT -> response = expenseService.buildCategoryReport(text);
+
+            case SAVE_EXPENSE -> response = expenseService.saveExpense(
+                    text,
+                    userId,
+                    username
+            );
+
+            case ANALYZE -> response = expenseAnalysisService.analyzeExpenses(
+                    intentResponse.getTopic(),
+                    text
+            );
+
+            case UNKNOWN -> {
+                return;
+            }
+
+            default -> response = """
+                    Не понял запрос.
+                    
+                    Попробуй:
+                    - "кофе 300"
+                    - "отчет за месяц"
+                    - "отчет по кофе за месяц"
+                    """;
+        }
+
+        var sendMessageBuilder = SendMessage.builder()
+                .chatId(targetChatId)
+                .text(response);
+
+        if (targetThreadId != null) {
+            sendMessageBuilder.messageThreadId(targetThreadId);
+        }
+
+        SendMessage sendMessage = sendMessageBuilder.build();
+
+        try {
+            telegramClient.execute(sendMessage);
+        } catch (Exception e) {
+            log.error("Error while sending message", e);
+        }
+    }
+
+    /**
+     * Проверяет, разрешено ли обрабатывать входящее сообщение.
+     *
+     * <p>Если настроен целевой chat id, сообщение должно прийти именно из него.
+     * Если настроен thread id, сообщение должно прийти именно из указанной темы.
+     *
+     * <p>Сообщения из других чатов или тем игнорируются до вызова LLM
+     * и бизнес-логики, чтобы не тратить ресурсы на их обработку.
+     *
+     * @param incomingChatId   chat id входящего сообщения
+     * @param incomingThreadId thread id входящего сообщения
+     * @param targetChatId     настроенный chat id для обработки
+     * @param targetThreadId   настроенный thread id для обработки
+     * @return {@code true}, если сообщение разрешено к обработке
+     */
+    private boolean isAllowedMessage(
+            Long incomingChatId,
+            Integer incomingThreadId,
+            Long targetChatId,
+            Integer targetThreadId
+    ) {
+        log.info(
+                "Incoming chat={}, thread={}, targetChat={}, targetThread={}",
+                incomingChatId,
+                incomingThreadId,
+                targetChatId,
+                targetThreadId
+        );
+
+        if (!incomingChatId.equals(targetChatId)) {
+            return false;
+        }
+
+        return targetThreadId == null
+                || targetThreadId.equals(incomingThreadId);
     }
 
     /**
