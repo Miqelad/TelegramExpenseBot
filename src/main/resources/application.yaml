@@ -9,6 +9,8 @@ spring:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:expenses}?tcpKeepAlive=true}
     username: ${SPRING_DATASOURCE_USERNAME:${EXPENSE_DB_USER:postgres}}
     password: ${SPRING_DATASOURCE_PASSWORD:${EXPENSE_DB_PASSWORD:${POSTGRES_PASSWORD}}}
+    hikari:
+      leak-detection-threshold: 60000
 
   jpa:
     hibernate:
