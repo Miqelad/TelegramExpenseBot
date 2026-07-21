@@ -1,6 +1,6 @@
 package com.paata.telegram_expense_bot.service.expense;
 
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.dto.CategoryReportRequest;
 import com.paata.telegram_expense_bot.model.dto.ReportPeriod;
 import com.paata.telegram_expense_bot.model.dto.ReportRequest;
@@ -8,6 +8,7 @@ import com.paata.telegram_expense_bot.model.entity.Expense;
 import com.paata.telegram_expense_bot.model.enums.ExpenseCategory;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
 import com.paata.telegram_expense_bot.repository.ExpenseRepository;
+import com.paata.telegram_expense_bot.service.DatabaseRetryService;
 import com.paata.telegram_expense_bot.service.EmbeddingService;
 import com.paata.telegram_expense_bot.service.ai.CategoryReportQueryService;
 import com.paata.telegram_expense_bot.service.ai.ReportQueryService;
@@ -43,9 +44,14 @@ public class ExpenseService {
     private final ExpenseRepository expenseRepository;
 
     /**
-     * Сервис генерации embedding-векторов через Jina AI.
+     * Сервис генерации embedding-векторов через Gemini API.
      */
     private final EmbeddingService embeddingService;
+
+    /**
+     * Сервис повторных попыток для безопасных идемпотентных записей в БД.
+     */
+    private final DatabaseRetryService databaseRetryService;
 
     /**
      * AI-сервис, который превращает текст запроса отчета в структурированные параметры.
@@ -58,9 +64,9 @@ public class ExpenseService {
     private final CategoryReportQueryService categoryReportQueryService;
 
     /**
-     * Сервис обращения к Groq LLM для короткой сводки отчета.
+     * Сервис обращения к Gemini LLM для короткой сводки отчета.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * Загрузчик prompt-файлов.
@@ -381,9 +387,12 @@ public class ExpenseService {
             String pgVector =
                     VectorUtils.toPgVector(embedding);
 
-            expenseRepository.updateEmbedding(
-                    savedExpense.getUuid(),
-                    pgVector
+            databaseRetryService.executeIdempotentWrite(
+                    "обновление embedding расхода " + savedExpense.getUuid(),
+                    () -> expenseRepository.updateEmbedding(
+                            savedExpense.getUuid(),
+                            pgVector
+                    )
             );
         }
         String savedExpenses =
@@ -537,7 +546,7 @@ public class ExpenseService {
                 )
                         .formatted(reportData, query);
 
-        return groqService.ask(
+        return geminiService.ask(
                 systemPrompt,
                 query
         );

@@ -15,13 +15,13 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 
 - Прием сообщений из Telegram через long polling.
 - Ответ в исходный чат/тему по умолчанию или в заданный через env чат/тему.
-- Классификация намерений пользователя через Groq LLM.
+- Классификация намерений пользователя через Gemini LLM.
 - Сохранение одного или нескольких расходов из одного сообщения.
 - Сохранение автора расхода по Telegram `user_id` и `username`.
 - Нормализация расходов через LLM в расширенный набор категорий: еда, транспорт, дом, здоровье, уход, животные, социальные траты, развлечения, покупки, digital/IT, финансы и привычки.
 - Отчеты по всем расходам за текущий месяц, несколько месяцев, конкретный месяц или диапазон дат.
 - Отчеты по конкретной категории или теме расходов с детализацией по описаниям, списком операций и AI-сводкой.
-- Генерация embeddings через Jina AI.
+- Генерация embeddings через Gemini API.
 - Хранение embeddings в PostgreSQL через pgvector.
 - Semantic search по похожим расходам.
 - RAG-анализ расходов с учетом найденного контекста.
@@ -38,8 +38,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 - PostgreSQL 16
 - pgvector
 - TelegramBots 9.0.0
-- Groq API
-- Jina AI Embeddings API
+- Gemini API
 - Docker / Docker Compose
 - Lombok
 - spring-dotenv для локального чтения `.env`
@@ -49,7 +48,7 @@ Telegram Expense Bot - это Spring Boot приложение для учета
 1. Пользователь пишет сообщение боту.
 2. `TelegramBot` получает update из Telegram.
 3. Из Telegram update достаются текст, chat id, thread id, user id и username.
-4. `GroqService.detectIntent` определяет intent:
+4. `GeminiService.detectIntent` определяет intent:
    - `SAVE_EXPENSE`
    - `MONTHLY_REPORT`
    - `CATEGORY_REPORT`
@@ -106,7 +105,7 @@ LLM может вернуть список расходов:
 Embedding - это числовое представление текста. В проекте используется модель:
 
 ```text
-jina-embeddings-v3
+gemini-embedding-001
 ```
 
 Embedding строится для текста расхода:
@@ -151,9 +150,9 @@ RAG - Retrieval-Augmented Generation. Сначала приложение дос
 
 ```text
 src/main/java/com/paata/telegram_expense_bot
-├── groq
-│   ├── config/WebClientConfig.java
-│   └── service/GroqService.java
+├── config/WebClientConfig.java
+├── gemini
+│   └── service/GeminiService.java
 ├── model
 │   ├── dto
 │   ├── entity/Expense.java
@@ -161,6 +160,7 @@ src/main/java/com/paata/telegram_expense_bot
 ├── prompt/PromptLoader.java
 ├── repository/ExpenseRepository.java
 ├── service
+│   ├── DatabaseRetryService.java
 │   ├── EmbeddingService.java
 │   ├── VectorSearchService.java
 │   ├── ai
@@ -180,13 +180,14 @@ src/main/java/com/paata/telegram_expense_bot
 ## Основные классы
 
 - `TelegramBot` - принимает сообщения Telegram, достает `user_id`/`username`, маршрутизирует intent и выбирает чат/тему для ответа.
-- `GroqService` - вызывает Groq Chat Completions API.
+- `GeminiService` - вызывает Gemini Generate Content API.
 - `ExpenseExtractorService` - извлекает расходы из текста и добавляет автора записи.
 - `ExpenseService` - сохраняет расходы, строит общие отчеты и отчеты по категории/теме расходов.
 - `ReportQueryService` - парсит период отчета через LLM.
 - `CategoryReportQueryService` - парсит категорию, поисковый текст и период для детального отчета.
 - `ReportPeriodService` - вычисляет даты отчета.
-- `EmbeddingService` - получает embeddings от Jina AI.
+- `EmbeddingService` - получает embeddings от Gemini API.
+- `DatabaseRetryService` - повторяет безопасные записи embedding в БД при временных ошибках.
 - `VectorSearchService` - ищет похожие расходы через pgvector по общей базе.
 - `ExpenseAnalysisService` - делает AI-анализ расходов через RAG.
 - `PromptLoader` - загружает prompt-файлы из resources.
@@ -287,9 +288,49 @@ TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_RESPONSE_CHAT_ID=
 TELEGRAM_RESPONSE_THREAD_ID=
 
-GROQ_API_KEY=your_groq_api_key
-JINA_API_KEY=your_jina_api_key
+GEMINI_API_KEY=your_gemini_api_key
+GEMINI_CHAT_MODELS=gemini-3.1-flash-lite,gemini-3.1-flash-lite-preview
+GEMINI_EMBEDDING_MODEL=gemini-embedding-001
+GEMINI_EMBEDDING_DIMENSIONS=1024
+GEMINI_EMBEDDING_RETRY_MAX_ATTEMPTS=5
+GEMINI_EMBEDDING_RETRY_BASE_DELAY_MS=5000
+GEMINI_EMBEDDING_RETRY_MAX_DELAY_MS=60000
+
+DB_WRITE_RETRY_MAX_ATTEMPTS=3
+DB_WRITE_RETRY_DELAY_MS=1000
 ```
+
+Что обязательно поменять в `.env` перед запуском:
+
+- `POSTGRES_HOST` - хост PostgreSQL. Для локального запуска обычно `localhost`, внутри Docker Compose приложение ходит в сервис `postgres`.
+- `POSTGRES_PASSWORD` - пароль администратора PostgreSQL, который используется контейнером базы.
+- `EXPENSE_DB_USER` и `EXPENSE_DB_PASSWORD` - отдельный пользователь БД для приложения. Эти же значения должны попадать в `SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` через настройки приложения.
+- `TELEGRAM_BOT_USERNAME` - username бота без `@`.
+- `TELEGRAM_BOT_TOKEN` - токен Telegram-бота из BotFather.
+- `GEMINI_API_KEY` - ключ Gemini API из Google AI Studio.
+
+Что можно оставить по умолчанию:
+
+- `POSTGRES_DB=expenses` и `POSTGRES_PORT=5432`, если база называется стандартно и порт не менялся.
+- `GEMINI_EMBEDDING_MODEL=gemini-embedding-001`.
+- `GEMINI_EMBEDDING_DIMENSIONS=1024`, пока колонка в БД имеет тип `vector(1024)`.
+- `GEMINI_EMBEDDING_RETRY_*` и `DB_WRITE_RETRY_*`, если нет частых временных ошибок.
+- `TELEGRAM_RESPONSE_CHAT_ID` и `TELEGRAM_RESPONSE_THREAD_ID`, если бот должен отвечать туда же, где получил сообщение.
+
+`GEMINI_CHAT_MODELS` принимает список моделей через запятую. Если первая модель недоступна и Gemini возвращает `404 Not Found`, приложение попробует следующую модель из списка.
+
+### Ретраи и лимиты
+
+Если Gemini возвращает `429 Too Many Requests`, приложение повторяет запрос embedding. Настройки:
+
+- `GEMINI_EMBEDDING_RETRY_MAX_ATTEMPTS` - максимальное число попыток одного embedding-запроса, включая первую.
+- `GEMINI_EMBEDDING_RETRY_BASE_DELAY_MS` - базовая пауза перед повтором после `429`, в миллисекундах.
+- `GEMINI_EMBEDDING_RETRY_MAX_DELAY_MS` - максимальная пауза перед повтором после `429`, в миллисекундах.
+
+Запись embedding в таблицу тоже повторяется при временной ошибке Spring Data:
+
+- `DB_WRITE_RETRY_MAX_ATTEMPTS` - максимальное число попыток записи embedding в таблицу, включая первую.
+- `DB_WRITE_RETRY_DELAY_MS` - пауза между попытками записи в БД, в миллисекундах.
 
 ### Куда бот отправляет ответы
 
@@ -310,8 +351,7 @@ TELEGRAM_RESPONSE_THREAD_ID=2
 
 Где взять ключи:
 
-- Jina AI API key: <https://jina.ai/api-dashboard/key-manager>
-- Groq API key: <https://console.groq.com/keys?utm_source=chatgpt.com>
+- Gemini API key: <https://aistudio.google.com/app/apikey>
 - Telegram bot token создается через BotFather.
 
 Не коммитьте `.env`. В репозиторий должен попадать только `.env.example`.

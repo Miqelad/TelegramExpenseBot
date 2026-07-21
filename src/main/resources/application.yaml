@@ -27,7 +27,15 @@ telegram:
     token: ${TELEGRAM_BOT_TOKEN}
     response-chat-id: "${TELEGRAM_RESPONSE_CHAT_ID:}"
     response-thread-id: "${TELEGRAM_RESPONSE_THREAD_ID:}"
-groq:
-  api-key: ${GROQ_API_KEY}
-jina:
-  api-key: ${JINA_API_KEY}
+gemini:
+  api-key: ${GEMINI_API_KEY}
+  chat-models: ${GEMINI_CHAT_MODELS:${GEMINI_CHAT_MODEL:gemini-3.1-flash-lite,gemini-3.1-flash-lite-preview}}
+  embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-001}
+  embedding-dimensions: ${GEMINI_EMBEDDING_DIMENSIONS:1024}
+  embedding-retry-max-attempts: ${GEMINI_EMBEDDING_RETRY_MAX_ATTEMPTS:5}
+  embedding-retry-base-delay-ms: ${GEMINI_EMBEDDING_RETRY_BASE_DELAY_MS:5000}
+  embedding-retry-max-delay-ms: ${GEMINI_EMBEDDING_RETRY_MAX_DELAY_MS:60000}
+
+db:
+  write-retry-max-attempts: ${DB_WRITE_RETRY_MAX_ATTEMPTS:3}
+  write-retry-delay-ms: ${DB_WRITE_RETRY_DELAY_MS:1000}

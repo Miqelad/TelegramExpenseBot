@@ -1,6 +1,6 @@
 package com.paata.telegram_expense_bot.telegram;
 
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.dto.IntentResponse;
 import com.paata.telegram_expense_bot.model.enums.IntentType;
 import com.paata.telegram_expense_bot.service.ai.ExpenseAnalysisService;
@@ -40,9 +40,9 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
     private final ExpenseService expenseService;
 
     /**
-     * Сервис Groq LLM для классификации намерений пользователя.
+     * Сервис Gemini LLM для классификации намерений пользователя.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * Сервис AI-анализа общих расходов через RAG и semantic search.
@@ -130,7 +130,7 @@ public class TelegramBot implements SpringLongPollingBot, LongPollingSingleThrea
                 .getId();
         String username = resolveUsername(update.getMessage().getFrom());
 
-        IntentResponse intentResponse = groqService.detectIntent(text);
+        IntentResponse intentResponse = geminiService.detectIntent(text);
 
         IntentType intent =
                 intentResponse == null || intentResponse.getIntent() == null

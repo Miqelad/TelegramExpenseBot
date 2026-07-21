@@ -1,6 +1,6 @@
 package com.paata.telegram_expense_bot.service.ai;
 
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.entity.Expense;
 import com.paata.telegram_expense_bot.model.enums.AnalysisTopic;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
@@ -27,9 +27,9 @@ public class ExpenseAnalysisService {
     private final VectorSearchService vectorSearchService;
 
     /**
-     * Сервис обращения к Groq LLM.
+     * Сервис обращения к Gemini LLM.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * Загрузчик prompt-файлов.
@@ -77,6 +77,6 @@ public class ExpenseAnalysisService {
                 );
 
         String template = promptLoader.loadPrompt("prompts/analyze-expenses.txt");
-        return groqService.ask(template, userMessage);
+        return geminiService.ask(template, userMessage);
     }
 }

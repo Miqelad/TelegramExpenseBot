@@ -58,6 +58,7 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     @Query(value = """
         SELECT *
         FROM expenses
+        WHERE embedding IS NOT NULL
         ORDER BY embedding <-> CAST(:embedding AS vector)
         LIMIT 5
         """, nativeQuery = true)
@@ -73,7 +74,8 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     @Query(value = """
         SELECT *
         FROM expenses
-        WHERE category IN (:categories)
+        WHERE embedding IS NOT NULL
+        AND category IN (:categories)
         ORDER BY embedding <-> CAST(:embedding AS vector)
         LIMIT 5
         """, nativeQuery = true)
