@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
+
 /**
  * AI-сервис разбора пользовательского запроса на отчет.
  *
@@ -43,6 +45,15 @@ public class ReportQueryService {
      */
     public ReportRequest parseReportQuery(String text) {
         try {
+            if (isCurrentMonthRequest(text)) {
+                return new ReportRequest(
+                        null,
+                        null,
+                        null,
+                        null
+                );
+            }
+
             String template = promptLoader.loadPrompt("prompts/report-parser.txt");
             String response =
                     geminiService.ask(template, text);
@@ -58,5 +69,27 @@ public class ReportQueryService {
                     e
             );
         }
+    }
+
+    /**
+     * Проверяет, просит ли пользователь отчет за текущий месяц.
+     *
+     * <p>Такие относительные фразы не отправляются в LLM, потому что модель может
+     * ошибочно выбрать конкретный месяц. Пустой {@link ReportRequest} дальше
+     * трактуется как текущий месяц в ReportPeriodService.</p>
+     *
+     * @param text исходный пользовательский текст
+     * @return {@code true}, если запрос явно относится к текущему месяцу
+     */
+    private boolean isCurrentMonthRequest(String text) {
+        String normalizedText =
+                text.toLowerCase(Locale.ROOT);
+
+        return normalizedText.contains("этот месяц")
+                || normalizedText.contains("текущий месяц")
+                || normalizedText.contains("нынешний месяц")
+                || normalizedText.contains("этом месяце")
+                || normalizedText.contains("текущем месяце")
+                || normalizedText.matches(".*\\bза\\s+месяц\\b.*");
     }
 }
