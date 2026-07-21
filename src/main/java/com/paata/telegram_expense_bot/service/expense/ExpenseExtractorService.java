@@ -7,9 +7,11 @@ import com.paata.telegram_expense_bot.model.dto.ExpenseRequest;
 import com.paata.telegram_expense_bot.model.entity.Expense;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -38,6 +40,12 @@ public class ExpenseExtractorService {
      */
     private final ObjectMapper objectMapper =
             new ObjectMapper();
+
+    /**
+     * Часовой пояс приложения для даты создания расходов.
+     */
+    @Value("${app.time-zone}")
+    private String appTimeZone;
 
     /**
      * Извлекает расходы из сообщения пользователя.
@@ -80,7 +88,7 @@ public class ExpenseExtractorService {
                                     .amount(dto.getAmount())
                                     .category(dto.getCategory())
                                     .description(dto.getDescription())
-                                    .createdAt(LocalDateTime.now())
+                                    .createdAt(LocalDateTime.now(ZoneId.of(appTimeZone)))
                                     .build()
                     )
                     .toList();

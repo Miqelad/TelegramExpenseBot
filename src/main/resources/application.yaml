@@ -21,6 +21,9 @@ spring:
     enabled: true
     change-log: classpath:/db/changelog/changelog-master.yaml
 
+app:
+  time-zone: ${APP_TIME_ZONE:Europe/Moscow}
+
 telegram:
   bot:
     username: ${TELEGRAM_BOT_USERNAME:paata_ai_business_bot}

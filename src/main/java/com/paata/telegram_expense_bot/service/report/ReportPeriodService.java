@@ -2,10 +2,12 @@ package com.paata.telegram_expense_bot.service.report;
 
 import com.paata.telegram_expense_bot.model.dto.ReportPeriod;
 import com.paata.telegram_expense_bot.model.dto.ReportRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 /**
  * Сервис вычисления периода отчета.
@@ -15,6 +17,12 @@ import java.time.LocalDateTime;
  */
 @Service
 public class ReportPeriodService {
+
+    /**
+     * Часовой пояс приложения для расчета относительных периодов отчетов.
+     */
+    @Value("${app.time-zone}")
+    private String appTimeZone;
 
     /**
      * Вычисляет период отчета.
@@ -29,10 +37,16 @@ public class ReportPeriodService {
             ReportRequest reportRequest
     ) {
 
+        ZoneId zoneId =
+                ZoneId.of(appTimeZone);
+
+        LocalDate today =
+                LocalDate.now(zoneId);
+
         LocalDateTime startDate;
 
         LocalDateTime endDate =
-                LocalDateTime.now();
+                LocalDateTime.now(zoneId);
 
         if (reportRequest.getDateFrom() != null) {
 
@@ -64,7 +78,7 @@ public class ReportPeriodService {
                     );
 
             startDate =
-                    LocalDate.now()
+                    today
                             .withMonth(month)
                             .withDayOfMonth(1)
                             .atStartOfDay();
@@ -77,7 +91,7 @@ public class ReportPeriodService {
         } else {
 
             startDate =
-                    LocalDate.now()
+                    today
                             .withDayOfMonth(1)
                             .atStartOfDay();
         }
@@ -111,7 +125,7 @@ public class ReportPeriodService {
             case "NOVEMBER" -> 11;
             case "DECEMBER" -> 12;
 
-            default -> LocalDate.now().getMonthValue();
+            default -> LocalDate.now(ZoneId.of(appTimeZone)).getMonthValue();
         };
     }
 }

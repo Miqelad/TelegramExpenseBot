@@ -283,6 +283,8 @@ POSTGRES_PASSWORD=change_me
 EXPENSE_DB_USER=expense_user
 EXPENSE_DB_PASSWORD=change_me_too
 
+APP_TIME_ZONE=Europe/Moscow
+
 TELEGRAM_BOT_USERNAME=your_bot_username
 TELEGRAM_BOT_TOKEN=your_telegram_bot_token
 TELEGRAM_RESPONSE_CHAT_ID=
@@ -305,6 +307,7 @@ DB_WRITE_RETRY_DELAY_MS=1000
 - `POSTGRES_HOST` - хост PostgreSQL. Для локального запуска обычно `localhost`, внутри Docker Compose приложение ходит в сервис `postgres`.
 - `POSTGRES_PASSWORD` - пароль администратора PostgreSQL, который используется контейнером базы.
 - `EXPENSE_DB_USER` и `EXPENSE_DB_PASSWORD` - отдельный пользователь БД для приложения. Эти же значения должны попадать в `SPRING_DATASOURCE_USERNAME`/`SPRING_DATASOURCE_PASSWORD` через настройки приложения.
+- `APP_TIME_ZONE` - часовой пояс для `created_at` и относительных отчетов вроде “этот месяц”. Для Москвы оставьте `Europe/Moscow`.
 - `TELEGRAM_BOT_USERNAME` - username бота без `@`.
 - `TELEGRAM_BOT_TOKEN` - токен Telegram-бота из BotFather.
 - `GEMINI_API_KEY` - ключ Gemini API из Google AI Studio.
