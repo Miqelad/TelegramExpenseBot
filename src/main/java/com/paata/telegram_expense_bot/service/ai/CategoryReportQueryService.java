@@ -1,7 +1,7 @@
 package com.paata.telegram_expense_bot.service.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.dto.CategoryReportRequest;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
 import lombok.RequiredArgsConstructor;
@@ -17,9 +17,9 @@ import org.springframework.stereotype.Service;
 public class CategoryReportQueryService {
 
     /**
-     * Сервис обращения к Groq LLM.
+     * Сервис обращения к Gemini LLM.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * Загрузчик prompt-файлов.
@@ -45,7 +45,7 @@ public class CategoryReportQueryService {
                             "prompts/category-report-parser.txt"
                     );
             String response =
-                    groqService.ask(
+                    geminiService.ask(
                             template,
                             text
                     );

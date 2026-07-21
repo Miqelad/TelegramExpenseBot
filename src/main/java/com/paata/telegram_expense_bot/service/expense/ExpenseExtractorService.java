@@ -2,7 +2,7 @@ package com.paata.telegram_expense_bot.service.expense;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.dto.ExpenseRequest;
 import com.paata.telegram_expense_bot.model.entity.Expense;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
@@ -24,9 +24,9 @@ import java.util.List;
 public class ExpenseExtractorService {
 
     /**
-     * Сервис обращения к Groq LLM.
+     * Сервис обращения к Gemini LLM.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * Загрузчик prompt-файлов из classpath.
@@ -61,7 +61,7 @@ public class ExpenseExtractorService {
                     );
 
             String response =
-                    groqService.ask(
+                    geminiService.ask(
                             systemPrompt,
                             text
                     );

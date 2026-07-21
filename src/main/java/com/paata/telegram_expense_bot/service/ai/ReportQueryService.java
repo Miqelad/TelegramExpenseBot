@@ -1,7 +1,7 @@
 package com.paata.telegram_expense_bot.service.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.paata.telegram_expense_bot.groq.service.GroqService;
+import com.paata.telegram_expense_bot.gemini.service.GeminiService;
 import com.paata.telegram_expense_bot.model.dto.ReportRequest;
 import com.paata.telegram_expense_bot.prompt.PromptLoader;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +20,9 @@ import org.springframework.stereotype.Service;
 public class ReportQueryService {
 
     /**
-     * Сервис обращения к Groq LLM.
+     * Сервис обращения к Gemini LLM.
      */
-    private final GroqService groqService;
+    private final GeminiService geminiService;
 
     /**
      * JSON-маппер для разбора структурированного ответа LLM.
@@ -45,7 +45,7 @@ public class ReportQueryService {
         try {
             String template = promptLoader.loadPrompt("prompts/report-parser.txt");
             String response =
-                    groqService.ask(template, text);
+                    geminiService.ask(template, text);
             log.info("LLM parseReportQuery response: {}", response);
             String cleanResponse = promptLoader.clean(response);
             return objectMapper.readValue(
